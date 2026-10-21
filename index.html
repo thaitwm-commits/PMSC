@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Synth Drive PS1 - iOS Tilt Supported</title>
+<title>PMSC v.2</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,111 +12,151 @@
     font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; user-select:none; -webkit-user-select:none; }
   #canvas-container { position:absolute; inset:0; z-index:1; }
   #canvas-container canvas { display:block; }
-  .cyber-panel { background:rgba(15,10,30,.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  .cyber-panel { background:rgba(15,10,30,.88); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
     border:1px solid rgba(255,0,128,.3); box-shadow:0 0 18px rgba(255,0,128,.18), inset 0 0 14px rgba(0,240,255,.08); }
   .cyber-button { background:linear-gradient(135deg,#ff007f 0%,#7928ca 100%); transition:all .2s ease; box-shadow:0 0 14px rgba(255,0,127,.5); }
   .cyber-button:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 0 24px rgba(255,0,127,.8); }
   .neon-pink { text-shadow:0 0 8px rgba(255,0,128,.8),0 0 20px rgba(255,0,128,.5); }
+  .neon-cyan { text-shadow:0 0 8px rgba(0,240,255,.8),0 0 20px rgba(0,240,255,.5); }
   #pop { position:absolute; left:50%; top:38%; transform:translateX(-50%); z-index:15; font-weight:900; font-size:28px;
     color:#35f2ff; text-shadow:0 0 10px #00f0ff; opacity:0; pointer-events:none; }
   #pop.show { animation:pop .7s ease-out; }
   @keyframes pop { 0%{opacity:1;transform:translate(-50%,0) scale(.8)} 100%{opacity:0;transform:translate(-50%,-40px) scale(1.15)} }
   select, input[type=range] { width:100%; }
+  #rotate { display:none; position:fixed; inset:0; z-index:50; background:#000; align-items:center; justify-content:center; flex-direction:column; gap:16px; text-align:center; padding:32px; }
+  @media (orientation:portrait) and (pointer:coarse) { #rotate { display:flex; } }
   select { background:#120a2a; border:1px solid rgba(0,240,255,.35); border-radius:6px; padding:4px 6px; color:#e5e7eb; font-size:12px; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,0,128,0.5); border-radius: 3px; }
 </style>
 </head>
 <body class="text-white">
 
 <div id="canvas-container"></div>
 <div id="pop"></div>
+<div id="rotate"><i class="fa-solid fa-mobile-screen-button fa-rotate-90 text-5xl text-pink-500"></i><div class="text-lg font-bold text-cyan-300">Xoay ngang điện thoại để chơi</div></div>
 
 <!-- HUD -->
-<div id="hud" class="absolute top-0 left-0 right-0 z-20 p-3 flex justify-between items-start pointer-events-none">
-  <div class="cyber-panel p-3 rounded-xl flex flex-col gap-1 min-w-[130px]">
-    <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">SCORE</span>
-    <span id="score-text" class="text-xl md:text-2xl font-black neon-pink tracking-wider">000000</span>
-    <div class="flex items-center gap-2 text-xs">
-      <span class="text-gray-400">COMBO</span><span id="combo-text" class="font-bold text-cyan-300">0</span>
-      <span class="text-gray-400">x</span><span id="multiplier-text" class="font-bold text-yellow-400">1</span>
+<div id="hud" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4">
+  <!-- Top Bar -->
+  <div class="flex justify-between items-start w-full">
+    <div></div>
+    
+    <div class="flex items-center gap-3 pointer-events-auto">
+      <!-- Đồ thị đường cong -->
+      <div id="curve-graph-container" class="cyber-panel p-1.5 rounded-lg border border-pink-500/40 bg-black/60 hidden">
+        <canvas id="debug-canvas" width="180" height="45" class="rounded"></canvas>
+      </div>
+      
+      <!-- Icon Setting -->
+      <button id="open-settings-btn" class="cyber-panel w-10 h-10 rounded-full flex items-center justify-center text-cyan-300 hover:text-pink-400 hover:scale-110 transition-all border border-cyan-400/40 shadow-lg">
+        <i class="fa-solid fa-gear text-lg"></i>
+      </button>
     </div>
   </div>
-  <div class="cyber-panel p-2 rounded-xl w-36 md:w-72">
-    <div class="text-[10px] font-bold tracking-wider text-pink-500 mb-1"><i class="fa-solid fa-music mr-1"></i>AUDIO</div>
-    <canvas id="visualizer-canvas" class="w-full h-8 rounded bg-black/40"></canvas>
+
+  <!-- Bottom Bar: Duy nhất điểm số góc dưới phải -->
+  <div class="flex justify-end items-end w-full">
+    <div id="score-display" class="hidden text-right">
+      <div id="score-text" class="text-4xl md:text-5xl font-black neon-pink tracking-wider font-mono">000000</div>
+    </div>
   </div>
 </div>
 
-<!-- Debug -->
-<canvas id="debug-canvas" class="absolute left-3 bottom-3 z-20 cyber-panel rounded-lg hidden" width="360" height="90"></canvas>
-
-<!-- Touch controls -->
-<div id="touch-controls" class="absolute bottom-0 left-0 right-0 z-20 p-5 flex justify-between pointer-events-none hidden">
-  <button id="btn-left" class="cyber-panel w-20 h-20 md:w-24 md:h-24 rounded-full text-2xl md:text-3xl text-cyan-400 pointer-events-auto border-2 border-cyan-500" style="touch-action:none"><i class="fa-solid fa-arrow-left"></i></button>
-  <button id="btn-right" class="cyber-panel w-20 h-20 md:w-24 md:h-24 rounded-full text-2xl md:text-3xl text-pink-500 pointer-events-auto border-2 border-pink-500" style="touch-action:none"><i class="fa-solid fa-arrow-right"></i></button>
+<!-- Màn hình bắt đầu đơn giản -->
+<div id="start-overlay" class="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/30 cursor-pointer">
+  <div class="text-center space-y-3 pointer-events-none">
+    <h1 class="text-5xl md:text-7xl font-extrabold neon-pink tracking-widest italic drop-shadow-lg">SYNTH DRIVE</h1>
+    <p id="start-prompt-text" class="text-cyan-300 text-sm md:text-base font-semibold tracking-wider animate-pulse">
+      <i class="fa-solid fa-spinner fa-spin mr-2"></i>ĐANG TẢI DỮ LIỆU...
+    </p>
+  </div>
 </div>
 
-<!-- Menu -->
-<div id="upload-modal" class="fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
-  <div class="cyber-panel p-6 rounded-2xl max-w-md w-full text-center flex flex-col items-center gap-4 border-2 border-pink-500/50 my-4">
-    <div>
-      <h1 class="text-3xl md:text-4xl font-extrabold neon-pink tracking-widest italic">SYNTH DRIVE</h1>
-      <p class="text-xs text-cyan-300 mt-1">Lái xe theo nhạc - Hỗ trợ Gyro iPhone/iPad</p>
+<!-- Vùng ẩn: chạm điều khiển -->
+<div id="zones" class="absolute inset-0 z-10 hidden" style="touch-action:none"><div id="zl" class="absolute left-0 top-0 w-1/2 h-full"></div><div id="zr" class="absolute right-0 top-0 w-1/2 h-full"></div></div>
+
+<!-- TAB SETTINGS / MENU -->
+<div id="settings-modal" class="fixed inset-0 z-30 hidden flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+  <div class="cyber-panel p-5 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col gap-4 border-2 border-pink-500/50 shadow-2xl relative overflow-hidden">
+    <div class="flex justify-between items-center border-b border-white/10 pb-3">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-pink-500"></i>
+        <h2 class="text-lg font-bold text-cyan-300 uppercase tracking-wider">Cài Đặt & Nhạc</h2>
+      </div>
+      <button id="close-settings-btn" class="text-gray-400 hover:text-white text-lg w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
     </div>
 
-    <label for="audio-file-input" class="w-full cursor-pointer flex flex-col items-center justify-center p-4 border-2 border-dashed border-cyan-400/50 hover:border-cyan-400 rounded-xl bg-cyan-950/20 transition-all">
-      <i class="fa-solid fa-cloud-arrow-up text-3xl text-cyan-400 mb-2"></i>
-      <span class="text-sm font-semibold text-gray-200" id="file-name-display">Tải lên file MP3 / WAV / OGG</span>
-      <input type="file" id="audio-file-input" accept="audio/*" class="hidden" />
-    </label>
-    <button id="demo-btn" class="text-xs text-pink-400 hover:text-pink-300 underline">Hoặc chơi bản Demo (tự tổng hợp, 48 giây)</button>
+    <div class="space-y-4 overflow-y-auto pr-1 text-xs">
+      <div class="space-y-2">
+        <div class="font-bold text-pink-400 flex items-center gap-1"><i class="fa-solid fa-music"></i> NGUỒN NHẠC</div>
+        <label for="audio-file-input" class="w-full cursor-pointer flex flex-col items-center justify-center p-3 border-2 border-dashed border-cyan-400/50 hover:border-cyan-400 rounded-xl bg-cyan-950/30 transition-all">
+          <i class="fa-solid fa-cloud-arrow-up text-2xl text-cyan-400 mb-1"></i>
+          <span class="text-xs font-semibold text-gray-200 text-center" id="file-name-display">Tải lên file MP3 / WAV / OGG</span>
+          <input type="file" id="audio-file-input" accept="audio/*" class="hidden" />
+        </label>
+        <button id="demo-btn" class="w-full py-2 bg-white/5 hover:bg-white/10 border border-pink-500/30 rounded-lg text-pink-300 font-medium transition-all text-center">
+          <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Dùng bài Demo (Synth 48s)
+        </button>
+      </div>
 
-    <div class="w-full text-left text-xs space-y-3 bg-black/40 p-3 rounded-lg border border-white/10">
-      <div class="font-bold text-cyan-400 flex justify-between items-center">
-        <span><i class="fa-solid fa-mobile-screen-button mr-1"></i> ĐIỀU KHIỂN BẰNG NGHIÊNG MÀN HÌNH</span>
+      <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
+        <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-route"></i> THÔNG SỐ ĐƯỜNG CUA</div>
+        <div>
+          <div class="text-gray-300 mb-1">Cua theo:</div>
+          <select id="mode-sel">
+            <option value="melody">Giai điệu (cao độ lên → phải, xuống → trái)</option>
+            <option value="beat">Nhịp (mỗi nhịp mạnh đổi hướng)</option>
+            <option value="mix">Kết hợp giai điệu + nhịp</option>
+          </select>
+        </div>
+        <div>
+          <div class="flex justify-between text-gray-300"><span>Độ mượt (lọc nhiễu)</span><span id="v-smooth" class="text-cyan-300">0.50s</span></div>
+          <input id="sl-smooth" type="range" min="0.2" max="1.2" step="0.05" value="0.5" class="accent-pink-500">
+        </div>
+        <div>
+          <div class="flex justify-between text-gray-300"><span>Độ gắt (góc lệch max)</span><span id="v-curve" class="text-cyan-300">40°</span></div>
+          <input id="sl-curve" type="range" min="15" max="60" step="1" value="40" class="accent-pink-500">
+        </div>
+        <div>
+          <div class="flex justify-between text-gray-300"><span>Lực văng khi cua</span><span id="v-drift" class="text-cyan-300">1.0x</span></div>
+          <input id="sl-drift" type="range" min="0.4" max="2" step="0.1" value="1" class="accent-pink-500">
+        </div>
       </div>
-      <div class="flex items-center justify-between">
-        <span class="text-gray-300">Bật cảm biến nghiêng (iOS/Mobile):</span>
-        <input type="checkbox" id="chk-tilt" class="w-4 h-4 accent-pink-500 cursor-pointer" checked>
-      </div>
-      <div>
-        <div class="flex justify-between text-gray-300"><span>Độ nhạy nghiêng</span><span id="v-tiltsens" class="text-cyan-300">15°</span></div>
-        <input id="sl-tiltsens" type="range" min="5" max="30" step="1" value="15" class="accent-pink-500">
+
+      <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
+        <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-gamepad"></i> ĐIỀU KHIỂN & ĐỒ HỌA</div>
+        <div>
+          <div class="text-gray-300 mb-1">Điều khiển:</div>
+          <select id="ctrl-sel"><option value="zone">Chạm vùng trái / phải</option><option value="tilt">Nghiêng máy (Di động) + Chạm</option></select>
+        </div>
+        <div>
+          <div class="text-gray-300 mb-1">Độ phân giải PS1:</div>
+          <select id="res-sel">
+            <option value="180">Thô (180p)</option>
+            <option value="240" selected>PS1 (240p)</option>
+            <option value="360">Mịn hơn (360p)</option>
+          </select>
+        </div>
+        <div>
+          <div class="text-gray-300 mb-1">Màu Theme theo ảnh:</div>
+          <div class="flex items-center gap-2">
+            <label class="px-2 py-1 rounded border border-cyan-400/50 text-cyan-300 cursor-pointer hover:bg-cyan-950/40">
+              Chọn ảnh <input type="file" id="img-input" accept="image/*" class="hidden">
+            </label>
+            <span id="sw-a" class="w-5 h-5 rounded border border-white/30" style="background:#ff2d95"></span>
+            <span id="sw-b" class="w-5 h-5 rounded border border-white/30" style="background:#35f2ff"></span>
+            <button id="theme-reset" class="text-pink-400 underline ml-auto">Reset</button>
+          </div>
+          <div id="theme-note" class="text-[10px] text-gray-400 mt-1">mặc định</div>
+        </div>
       </div>
     </div>
 
-    <div class="w-full text-left text-xs space-y-3 bg-black/40 p-3 rounded-lg border border-white/10">
-      <div class="font-bold text-cyan-400"><i class="fa-solid fa-sliders mr-1"></i> TINH CHỈNH ĐƯỜNG CUA</div>
-      <div>
-        <div class="text-gray-300 mb-1">Cua theo:</div>
-        <select id="mode-sel">
-          <option value="melody">Giai điệu (cao độ lên → cua phải, xuống → cua trái)</option>
-          <option value="beat">Nhịp (mỗi nhịp mạnh đổi hướng lắc)</option>
-          <option value="mix">Kết hợp giai điệu + nhịp</option>
-        </select>
-      </div>
-      <div>
-        <div class="flex justify-between text-gray-300"><span>Độ mượt (lọc nhiễu)</span><span id="v-smooth" class="text-cyan-300">0.50s</span></div>
-        <input id="sl-smooth" type="range" min="0.2" max="1.2" step="0.05" value="0.5" class="accent-pink-500">
-      </div>
-      <div>
-        <div class="flex justify-between text-gray-300"><span>Độ gắt (góc lệch tối đa)</span><span id="v-curve" class="text-cyan-300">40°</span></div>
-        <input id="sl-curve" type="range" min="15" max="60" step="1" value="40" class="accent-pink-500">
-      </div>
-      <div>
-        <div class="flex justify-between text-gray-300"><span>Lực văng khi cua</span><span id="v-drift" class="text-cyan-300">1.0x</span></div>
-        <input id="sl-drift" type="range" min="0.4" max="2" step="0.1" value="1" class="accent-pink-500">
-      </div>
-      <div>
-        <div class="text-gray-300 mb-1">Độ phân giải kiểu PS1:</div>
-        <select id="res-sel">
-          <option value="180">Thô (180p)</option>
-          <option value="240" selected>PS1 (240p)</option>
-          <option value="360">Mịn hơn (360p)</option>
-        </select>
-      </div>
-    </div>
-
-    <button id="start-btn" disabled class="cyber-button w-full py-3 rounded-xl font-black text-lg tracking-wider opacity-50 cursor-not-allowed">BẮT ĐẦU LÁI</button>
+    <button id="start-from-settings-btn" class="cyber-button w-full py-2.5 rounded-xl font-bold text-white tracking-wider">BẮT ĐẦU LÁI</button>
   </div>
 </div>
 
@@ -130,7 +170,7 @@
 <div id="pause-overlay" class="fixed inset-0 z-30 hidden items-center justify-center bg-black/60">
   <div class="cyber-panel px-8 py-6 rounded-2xl text-center">
     <div class="text-3xl font-black neon-pink tracking-widest">TẠM DỪNG</div>
-    <div class="text-xs text-gray-300 mt-2">Chạm vào màn hình để tiếp tục</div>
+    <div class="text-xs text-gray-300 mt-2">Nhấn P hoặc chạm màn hình để tiếp tục</div>
   </div>
 </div>
 
@@ -143,7 +183,7 @@
       <div id="final-score" class="text-5xl font-black neon-pink my-2">000000</div>
     </div>
     <button id="again-btn" class="cyber-button w-full py-3 rounded-xl font-bold text-white">CHƠI LẠI BÀI NÀY</button>
-    <button id="other-btn" class="w-full py-3 rounded-xl font-bold text-cyan-300 border border-cyan-400/50 hover:bg-cyan-900/30">CHỌN BÀI KHÁC / ĐỔI THÔNG SỐ</button>
+    <button id="other-btn" class="w-full py-3 rounded-xl font-bold text-cyan-300 border border-cyan-400/50 hover:bg-cyan-900/30">CÀI ĐẶT / ĐỔI BÀI HÁT</button>
   </div>
 </div>
 
@@ -158,29 +198,55 @@ const smoothstep = (a,b,x) => { const t = clamp((x-a)/(b-a),0,1); return t*t*(3-
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
 const CFG = { speed:38, halfW:8, ds:1.5, padBack:60, padFwd:420, fftN:2048, hop:1024 };
-const UI  = { mode:'melody', smooth:0.5, maxDeg:40, drift:1, lines:240, useTilt: true, tiltMaxDeg: 15 };
-const HORIZON = 0x4a1670;
+const UI  = { mode:'melody', smooth:0.5, maxDeg:40, drift:1, lines:240, tilt:false };
+const PAL_DEF={a:'#ff2d95',b:'#35f2ff',obs:'#ff2244',skyT:'#06010f',skyM:'#12053a',skyL:'#3a0f6e',glA:'#c2297f',glB:'#ff5aa0',hor:'#4a1670',sun:['#ffe45e','#ff8a3d','#ff2d95'],mount:'#1c0a40',gtile:'#14082e',asA:'#1a0f33',asB:'#1f123d',pillar:'#3a1a7a',body:'#d81b7a',bodyE:'#2a0418',cabin:'#22d8ff',cabinE:'#0a4a60'};
+const PAL_MONO={a:'#ffffff',b:'#c8c8c8',obs:'#ffffff',skyT:'#000000',skyM:'#050505',skyL:'#0e0e0e',glA:'#555555',glB:'#dddddd',hor:'#050505',sun:['#ffffff','#dddddd','#888888'],mount:'#080808',gtile:'#000000',asA:'#0a0a0a',asB:'#101010',pillar:'#444444',body:'#ffffff',bodyE:'#222222',cabin:'#bbbbbb',cabinE:'#333333'};
+const PAL=Object.assign({},PAL_DEF);
+const hsl=(h,s,l)=>new THREE.Color().setHSL(((h%1)+1)%1,s,l).getStyle();
+const rgbA=(c,k=1)=>{const o=new THREE.Color(c);return [o.r*k,o.g*k,o.b*k];};
+function palFromHue(h,s){ return {a:hsl(h,s,.55),b:hsl(h+.5,s,.55),obs:hsl(h,s,.6),skyT:hsl(h,.6,.03),skyM:hsl(h,.6,.1),skyL:hsl(h,.55,.22),glA:hsl(h,.8,.4),glB:hsl(h,.9,.65),hor:hsl(h,.55,.2),
+  sun:[hsl(h+.05,.9,.72),hsl(h,s,.58),hsl(h+.5,s,.55)],mount:hsl(h,.6,.12),gtile:hsl(h,.6,.1),asA:hsl(h,.5,.09),asB:hsl(h,.5,.11),pillar:hsl(h,.5,.28),body:hsl(h,s,.5),bodyE:hsl(h,.8,.08),cabin:hsl(h+.5,s,.55),cabinE:hsl(h+.5,.7,.2)}; }
+
+const DARK_FRAC=0.6, MIN_COLOR_FRAC=0.08;
+function themeFromImage(img){
+  const S=48,c=document.createElement('canvas'); c.width=c.height=S;
+  const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(img,0,0,S,S);
+  const d=x.getImageData(0,0,S,S).data, bins=new Float32Array(36), sat=new Float32Array(36);
+  let n=0,dark=0,col=0;
+  for (let i=0;i<d.length;i+=4){
+    const r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255, mx=Math.max(r,g,b), mn=Math.min(r,g,b), df=mx-mn, s=mx?df/mx:0; n++;
+    if (mx<0.2){ dark++; continue; }
+    if (s<0.25) continue;
+    let hh = mx===r?((g-b)/df)%6 : mx===g?(b-r)/df+2 : (r-g)/df+4; hh=((hh/6)%1+1)%1;
+    const w=s*mx, k=Math.floor(hh*36)%36; bins[k]+=w; sat[k]+=s*w; col++;
+  }
+  if (dark/n>=DARK_FRAC || col/n<MIN_COLOR_FRAC) return {pal:PAL_MONO,note:'ảnh tối/xám → nền đen, màu trắng'};
+  let best=0,bv=-1;
+  for (let k=0;k<36;k++){ const v=bins[k]+bins[(k+35)%36]*0.5+bins[(k+1)%36]*0.5; if (v>bv){ bv=v; best=k; } }
+  const h=(best+0.5)/36, s=clamp(bins[best]>0?sat[best]/bins[best]:0.8,0.6,1);
+  return {pal:palFromHue(h,s),note:'chủ đạo '+Math.round(h*360)+'° + màu bù '+Math.round(((h+.5)%1)*360)+'°'};
+}
 const STEER_ACC = 34, DRIFT_K = 0.22;
 
-/* ------------------------------------------------------------------ */
-/*  AUDIO CONTEXT                                                      */
-/* ------------------------------------------------------------------ */
+/* AUDIO CONTEXT */
 let audioCtx=null, analyser=null, freqData=null, srcNode=null;
 function ensureCtx(){
-  if (audioCtx) return audioCtx;
-  const AC = window.AudioContext || window.webkitAudioContext;
-  audioCtx = new AC();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 512;
-  analyser.smoothingTimeConstant = 0.7;
-  analyser.connect(audioCtx.destination);
-  freqData = new Uint8Array(analyser.frequencyBinCount);
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.7;
+    analyser.connect(audioCtx.destination);
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
   return audioCtx;
 }
 
-/* ------------------------------------------------------------------ */
-/*  DEMO TRACK                                                        */
-/* ------------------------------------------------------------------ */
+/* DEMO TRACK */
 async function makeDemoBuffer(){
   const sr=44100, bpm=120, beat=60/bpm, bars=24, dur=bars*4*beat+1.5;
   const oc = new OfflineAudioContext(1, Math.ceil(sr*dur), sr);
@@ -220,9 +286,7 @@ async function makeDemoBuffer(){
   return await oc.startRendering();
 }
 
-/* ------------------------------------------------------------------ */
-/*  PHÂN TÍCH OFFLINE & LỌC TÍN HIỆU                                   */
-/* ------------------------------------------------------------------ */
+/* PHÂN TÍCH OFFLINE */
 let FEAT=null, songBuffer=null;
 const tick = () => new Promise(r => setTimeout(r,0));
 
@@ -281,6 +345,7 @@ async function analyzeBuffer(buf, progress){
   return { sr, fr:sr/H, nF, cen, loud, fluxA, fluxB, duration:len/sr, off:(N/2)/sr };
 }
 
+/* BỘ LỌC TÍN HIỆU */
 function movAvg(a,w){
   const n=a.length, out=new Float32Array(n), half=w>>1, pre=new Float64Array(n+1);
   for (let i=0;i<n;i++) pre[i+1]=pre[i]+a[i];
@@ -370,13 +435,12 @@ function buildCurve(F){
   return { f:s, raw:gated };
 }
 function sampleArr(a,t){
+  if (!a) return 0;
   const u=(t-CM.off)*CM.fr; if (u<=0) return a[0]; if (u>=a.length-1) return a[a.length-1];
   const i=u|0, k=u-i; return a[i]+(a[i+1]-a[i])*k;
 }
 
-/* ------------------------------------------------------------------ */
-/*  TRACK LOGIC                                                       */
-/* ------------------------------------------------------------------ */
+/* TRACK BUILDER */
 let TRACK=null;
 const RA={x:0,z:0,th:0,k:0}, RB={x:0,z:0,th:0,k:0}, RF={x:0,z:0,th:0,k:0};
 function buildTrackData(f,dur){
@@ -399,9 +463,7 @@ function roadAt(s,o){
   return o;
 }
 
-/* ------------------------------------------------------------------ */
-/*  THREE.JS + PS1 RENDERER                                            */
-/* ------------------------------------------------------------------ */
+/* THREE.JS PS1 GRAPHICS */
 let renderer, scene, camera, rt, postScene, postCam, postMat;
 let LW=427, LH=240;
 const SNAP={value:new THREE.Vector2(LW,LH)};
@@ -438,23 +500,23 @@ function makeCar(){
     {z:-2.5,wb:0.5,wt:0.25,y0:0.28,y1:0.45},
     {z:-1.2,wb:1.7,wt:1.3,y0:0.22,y1:0.66},
     {z:0.8,wb:1.95,wt:1.5,y0:0.22,y1:0.72},
-    {z:2.1,wb:1.8,wt:1.2,y0:0.26,y1:0.82}]), L(0xd81b7a,0x2a0418));
+    {z:2.1,wb:1.8,wt:1.2,y0:0.26,y1:0.82}]), L(PAL.body,PAL.bodyE));
   const cabin=new THREE.Mesh(loft([
     {z:-0.7,wb:1.0,wt:0.45,y0:0.66,y1:1.02},
     {z:0.3,wb:1.45,wt:0.9,y0:0.70,y1:1.28},
-    {z:1.3,wb:1.5,wt:1.0,y0:0.74,y1:1.12}]), L(0x22d8ff,0x0a4a60));
+    {z:1.3,wb:1.5,wt:1.0,y0:0.74,y1:1.12}]), L(PAL.cabin,PAL.cabinE));
   carBody.add(body,cabin);
-  const wingMat=ps1(new THREE.MeshBasicMaterial({color:0x35f2ff}));
+  const wingMat=ps1(new THREE.MeshBasicMaterial({color:PAL.b}));
   const wing=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.08,0.5),wingMat); wing.position.set(0,1.1,2.05);
   const s1=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.3,0.1),wingMat); s1.position.set(-0.6,0.95,2.0);
   const s2=s1.clone(); s2.position.x=0.6; carBody.add(wing,s1,s2);
-  const tail=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.1,0.06),ps1(new THREE.MeshBasicMaterial({color:0xff2d95})));
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.1,0.06),ps1(new THREE.MeshBasicMaterial({color:PAL.a})));
   tail.position.set(0,0.6,2.12); carBody.add(tail);
   const wGeo=flat(new THREE.CylinderGeometry(0.45,0.45,0.45,6)); wGeo.rotateZ(Math.PI/2);
   const wMat=L(0x0d0a1a);
   [[-1.02,-1.3],[1.02,-1.3],[-1.02,1.25],[1.02,1.25]].forEach(([x,z])=>{ const w=new THREE.Mesh(wGeo,wMat); w.position.set(x,0.45,z); carBody.add(w); });
   const gg=new THREE.PlaneGeometry(2.1,4.8); gg.rotateX(-Math.PI/2);
-  glowMesh=new THREE.Mesh(gg,new THREE.MeshBasicMaterial({color:0x00f0ff,transparent:true,opacity:0.45,depthWrite:false}));
+  glowMesh=new THREE.Mesh(gg,new THREE.MeshBasicMaterial({color:PAL.b,transparent:true,opacity:0.45,depthWrite:false}));
   glowMesh.position.y=0.07; g.add(glowMesh);
   return g;
 }
@@ -462,14 +524,14 @@ function makeCar(){
 function makeSkyTexture(){
   const c=document.createElement('canvas'); c.width=4; c.height=128; const x=c.getContext('2d');
   const gr=x.createLinearGradient(0,0,0,128);
-  gr.addColorStop(0,'#06010f'); gr.addColorStop(0.30,'#12053a'); gr.addColorStop(0.42,'#3a0f6e');
-  gr.addColorStop(0.47,'#c2297f'); gr.addColorStop(0.49,'#ff5aa0'); gr.addColorStop(0.5,'#4a1670'); gr.addColorStop(1,'#4a1670');
+  gr.addColorStop(0,PAL.skyT); gr.addColorStop(0.30,PAL.skyM); gr.addColorStop(0.42,PAL.skyL);
+  gr.addColorStop(0.47,PAL.glA); gr.addColorStop(0.49,PAL.glB); gr.addColorStop(0.5,PAL.hor); gr.addColorStop(1,PAL.hor);
   x.fillStyle=gr; x.fillRect(0,0,4,128);
   const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return t;
 }
 function makeSunTexture(){
   const S=256, c=document.createElement('canvas'); c.width=c.height=S; const x=c.getContext('2d');
-  const gr=x.createLinearGradient(0,0,0,S); gr.addColorStop(0,'#ffe45e'); gr.addColorStop(0.55,'#ff8a3d'); gr.addColorStop(1,'#ff2d95');
+  const gr=x.createLinearGradient(0,0,0,S); gr.addColorStop(0,PAL.sun[0]); gr.addColorStop(0.55,PAL.sun[1]); gr.addColorStop(1,PAL.sun[2]);
   x.fillStyle=gr; x.beginPath(); x.arc(S/2,S/2,S/2-2,0,Math.PI*2); x.fill();
   x.globalCompositeOperation='destination-out';
   [[0.55,2],[0.64,3],[0.72,5],[0.80,7],[0.87,9],[0.93,12]].forEach(([p,h])=>x.fillRect(0,S*p,S,h));
@@ -477,7 +539,7 @@ function makeSunTexture(){
 }
 function makeGround(){
   const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
-  x.fillStyle='#14082e'; x.fillRect(0,0,64,64); x.strokeStyle='#ff2d95'; x.lineWidth=2.5; x.strokeRect(0,0,64,64);
+  x.fillStyle=PAL.gtile; x.fillRect(0,0,64,64); x.strokeStyle=PAL.a; x.lineWidth=2.5; x.strokeRect(0,0,64,64);
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(50,50);
   t.magFilter=THREE.NearestFilter; t.anisotropy=renderer.capabilities.getMaxAnisotropy();
   const g=new THREE.PlaneGeometry(1000,1000); g.rotateX(-Math.PI/2);
@@ -489,7 +551,7 @@ function makeBackdrop(){
   sky.renderOrder=-10; grp.add(sky);
   sunMesh=new THREE.Mesh(new THREE.PlaneGeometry(150,150),new THREE.MeshBasicMaterial({map:makeSunTexture(),transparent:true,fog:false,depthWrite:false}));
   sunMesh.position.set(0,75,-700); grp.add(sunMesh);
-  const rng=mulberry32(7), mMat=new THREE.MeshBasicMaterial({color:0x1c0a40,fog:false}), lMat=new THREE.LineBasicMaterial({color:0xff2d95,fog:false});
+  const rng=mulberry32(7), mMat=new THREE.MeshBasicMaterial({color:PAL.mount,fog:false}), lMat=new THREE.LineBasicMaterial({color:PAL.a,fog:false});
   for (let i=0;i<56;i++){
     const a=i/56*Math.PI*2+rng()*0.1, w=60+rng()*90, h=30+rng()*80;
     const geo=new THREE.ConeGeometry(w,h,4); geo.translate(0,h/2,0);
@@ -505,7 +567,7 @@ function initThree(){
   renderer.setPixelRatio(1);
   $('canvas-container').appendChild(renderer.domElement);
   scene=new THREE.Scene();
-  scene.fog=new THREE.Fog(HORIZON,70,430);
+  scene.fog=new THREE.Fog(PAL.hor,70,430);
   camera=new THREE.PerspectiveCamera(72,1,1,2600);
   scene.add(new THREE.AmbientLight(0xffffff,0.62));
   const d1=new THREE.DirectionalLight(0xffa0e0,0.85); d1.position.set(-6,10,8); scene.add(d1);
@@ -538,9 +600,9 @@ function initThree(){
   carGroup=makeCar(); scene.add(carGroup);
 
   obsGeo=flat(new THREE.ConeGeometry(1.1,2.5,4)); obsGeo.translate(0,1.25,0);
-  obsMat=ps1(new THREE.MeshLambertMaterial({color:0xff2244,emissive:0x550010,side:THREE.DoubleSide}));
+  obsMat=ps1(new THREE.MeshLambertMaterial({color:PAL.obs,emissive:new THREE.Color(PAL.obs).multiplyScalar(.3),side:THREE.DoubleSide}));
   ringGeo=flat(new THREE.TorusGeometry(1.0,0.24,4,8));
-  ringMat=ps1(new THREE.MeshBasicMaterial({color:0x35f2ff}));
+  ringMat=ps1(new THREE.MeshBasicMaterial({color:PAL.b}));
 
   window.addEventListener('resize',onResize);
 }
@@ -551,7 +613,15 @@ function onResize(){
   LH=UI.lines; LW=Math.max(64,Math.round(LH*w/h));
   rt.setSize(LW,LH); postMat.uniforms.uRes.value.set(LW,LH); SNAP.value.set(LW,LH);
   camera.aspect=w/h; camera.updateProjectionMatrix();
-  const v=$('visualizer-canvas'); v.width=v.clientWidth||200; v.height=v.clientHeight||32;
+}
+
+function applyTheme(){
+  scene.fog.color.set(PAL.hor);
+  [backdrop,groundMesh,carGroup].forEach(o=>{ o.traverse(m=>{ if(m.geometry)m.geometry.dispose(); if(m.material&&m.material.map)m.material.map.dispose(); }); scene.remove(o); });
+  groundMesh=makeGround(); backdrop=makeBackdrop(); carGroup=makeCar(); scene.add(groundMesh,backdrop,carGroup);
+  obsMat.color.set(PAL.obs); obsMat.emissive.set(PAL.obs).multiplyScalar(.3); ringMat.color.set(PAL.b);
+  if (TRACK) buildTrackMeshes();
+  $('sw-a').style.background=PAL.a; $('sw-b').style.background=PAL.b;
 }
 
 function stripGeometry(latA,latB,yA,yB,colorFn){
@@ -578,10 +648,11 @@ function buildTrackMeshes(){
   const W=CFG.halfW, n=TRACK.n;
   const mk=po=>ps1(new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:po}));
   const add=(geo,mat)=>{ const m=new THREE.Mesh(geo,mat); m.frustumCulled=false; trackGroup.add(m); };
-  const asphalt=q=>((q>>2)&1)?[0.12,0.07,0.24]:[0.10,0.06,0.20];
-  const rumble =q=>((q>>2)&1)?[1.0,0.12,0.55]:[0.0,0.9,1.0];
+  const cA=rgbA(PAL.asA), cB=rgbA(PAL.asB), ra=rgbA(PAL.a), rb=rgbA(PAL.b), wa=rgbA(PAL.a,.7), wb=rgbA(PAL.b,.7);
+  const asphalt=q=>((q>>2)&1)?cB:cA;
+  const rumble =q=>((q>>2)&1)?ra:rb;
   const dash   =q=>((q>>2)&1)?null:[0.9,0.9,1.0];
-  const wall   =q=>((q/6|0)&1)?[0.7,0.08,0.4]:[0.0,0.6,0.7];
+  const wall   =q=>((q/6|0)&1)?wa:wb;
   add(stripGeometry(-W,W,0,0,asphalt),mk(-2));
   add(stripGeometry(-W-1.2,-W,0,0,rumble),mk(-6));
   add(stripGeometry(W,W+1.2,0,0,rumble),mk(-6));
@@ -592,9 +663,9 @@ function buildTrackMeshes(){
   const step=16, per=Math.ceil(n/step), cnt=per*2;
   const pGeo=flat(new THREE.CylinderGeometry(0.2,0.6,5,4)); pGeo.translate(0,2.5,0);
   const cGeo=flat(new THREE.ConeGeometry(0.55,1.0,4)); cGeo.translate(0,5.5,0);
-  const pil=new THREE.InstancedMesh(pGeo,ps1(new THREE.MeshLambertMaterial({color:0x3a1a7a})),cnt);
-  const capA=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:0xff2d95})),cnt);
-  const capB=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:0x35f2ff})),cnt);
+  const pil=new THREE.InstancedMesh(pGeo,ps1(new THREE.MeshLambertMaterial({color:PAL.pillar})),cnt);
+  const capA=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:PAL.a})),cnt);
+  const capB=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:PAL.b})),cnt);
   const dm=new THREE.Object3D(), rng=mulberry32(11); let ii=0;
   for (let p=0;p<per;p++){
     const j=Math.min(n-1,p*step);
@@ -634,54 +705,10 @@ function buildObjects(){
   scene.add(objGroup);
 }
 
-/* ------------------------------------------------------------------ */
-/*  GAME STATE & INPUT (Gyros & Tilt Included)                        */
-/* ------------------------------------------------------------------ */
+/* GAME STATE */
 const G={running:false,paused:false,over:false,t:0,startAt:0,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0};
 const P={d:0,vd:0,steer:0};
-const keys={left:false,right:false}; 
-let touchSteer=0, tiltSteer=0;
-let dbgOn=false;
-
-/* --- HỖ TRỢ BẺ LÁI BẰNG NGHIÊNG THIẾT BỊ (GYRO) --- */
-function handleOrientation(e) {
-  if (!UI.useTilt || !G.running || G.paused) return;
-  
-  // gamma: góc nghiêng trái/phải (-90 đến 90)
-  let gamma = e.gamma; 
-  if (gamma === null || gamma === undefined) return;
-
-  // Đổi hướng nếu thiết bị ở màn hình ngang (Landscape)
-  if (window.orientation === 90) {
-    gamma = -e.beta;
-  } else if (window.orientation === -90) {
-    gamma = e.beta;
-  }
-
-  // Chuẩn hóa góc nghiêng [-1, 1]
-  const clampedGamma = clamp(gamma, -UI.tiltMaxDeg, UI.tiltMaxDeg);
-  tiltSteer = clampedGamma / UI.tiltMaxDeg;
-}
-
-// Cấp quyền cảm biến nghiêng cho Safari trên iOS 13+
-async function requestTiltPermission() {
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    try {
-      const response = await DeviceOrientationEvent.requestPermission();
-      if (response === 'granted') {
-        window.addEventListener('deviceorientation', handleOrientation, true);
-      } else {
-        UI.useTilt = false;
-        $('chk-tilt').checked = false;
-      }
-    } catch (e) {
-      console.warn('Không thể cấp quyền DeviceOrientation:', e);
-    }
-  } else {
-    // Android hoặc trình duyệt cũ
-    window.addEventListener('deviceorientation', handleOrientation, true);
-  }
-}
+const keys={left:false,right:false}; let touchSteer=0;
 
 function hurt(pen){ G.score=Math.max(0,G.score-pen); G.combo=0; G.mult=1; G.flash=0.55; G.shake=0.9; }
 function popText(txt){ const el=$('pop'); el.textContent=txt; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
@@ -691,12 +718,7 @@ function update(dt){
   G.t=audioCtx.currentTime-G.startAt-lat;
   const v=CFG.speed, sp=v*G.t;
   roadAt(sp,RA);
-
-  // Tổng hợp tín hiệu lái (Phím / Cảm ứng / Nghiêng)
-  let keyDir = (keys.right?1:0) - (keys.left?1:0);
-  let activeSteer = keyDir !== 0 ? keyDir : (touchSteer !== 0 ? touchSteer : (UI.useTilt ? tiltSteer : 0));
-
-  const target=clamp(activeSteer, -1, 1);
+  const target=clamp((keys.right?1:0)-(keys.left?1:0)+touchSteer+(tiltOn?tiltVal:0),-1,1);
   P.steer+=(target-P.steer)*Math.min(1,dt*12);
   P.vd+=(P.steer*STEER_ACC - RA.k*v*v*DRIFT_K*UI.drift)*dt;
   P.vd*=Math.exp(-1.7*dt);
@@ -762,58 +784,68 @@ function idleScene(time){
   placeActors(sp,0,0,0,0,0.016);
 }
 
-let lastHUD='';
 function updateHUD(){
-  const s=Math.floor(G.score).toString().padStart(6,'0')+'|'+G.combo+'|'+G.mult;
-  if (s===lastHUD) return; lastHUD=s;
   $('score-text').textContent=Math.floor(G.score).toString().padStart(6,'0');
-  $('combo-text').textContent=G.combo; $('multiplier-text').textContent=G.mult;
 }
 
-function readAudioViz(){
-  const c=$('visualizer-canvas'), x=c.getContext('2d');
-  x.clearRect(0,0,c.width,c.height);
-  if (!analyser||!G.running||G.paused) return;
-  analyser.getByteFrequencyData(freqData);
-  const raw=(freqData[0]+freqData[1]+freqData[2])/(3*255);
-  G.bass=Math.max(raw,G.bass*0.9);
-  const bars=32, bw=c.width/bars;
-  for (let i=0;i<bars;i++){
-    let a=0; for (let j=0;j<3;j++) a+=freqData[i*3+j]; a/=3*255;
-    x.fillStyle=i<8?'#ff007f':'#00f0ff'; const h=a*c.height; x.fillRect(i*bw,c.height-h,bw-1,h);
+/* ĐỒ THỊ ĐƯỜNG CONG TẠI GÓC TRÊN */
+function drawCurveGraph(){
+  if (!CURVE) return;
+  const c=$('debug-canvas'), x=c.getContext('2d'), w=c.width, h=c.height;
+  x.clearRect(0,0,w,h);
+  x.fillStyle='rgba(15,10,30,0.6)';
+  x.fillRect(0,0,w,h);
+  
+  x.strokeStyle='rgba(255,255,255,0.15)';
+  x.lineWidth = 1;
+  x.beginPath(); x.moveTo(0,h/2); x.lineTo(w,h/2); x.stroke();
+  
+  const t0=G.running?G.t-1:0, t1=G.running?G.t+6:7, nowX=w*0.2;
+  
+  x.strokeStyle='#00f0ff';
+  x.lineWidth = 2;
+  x.beginPath();
+  for (let px=0;px<w;px++){ 
+    const t=t0+(t1-t0)*px/w;
+    const val = sampleArr(CURVE.f,t);
+    const y=h/2 - val*(h/2-4); 
+    px?x.lineTo(px,y):x.moveTo(px,y); 
+  }
+  x.stroke();
+
+  if (G.running) {
+    x.strokeStyle='#ff007f';
+    x.lineWidth = 1.5;
+    x.beginPath(); x.moveTo(nowX,0); x.lineTo(nowX,h); x.stroke();
   }
 }
 
-function drawDebug(){
-  if (!dbgOn||!CURVE) return;
-  const c=$('debug-canvas'), x=c.getContext('2d'), w=c.width, h=c.height;
-  x.clearRect(0,0,w,h); x.fillStyle='rgba(0,0,0,0.5)'; x.fillRect(0,0,w,h);
-  x.strokeStyle='rgba(255,255,255,0.2)'; x.beginPath(); x.moveTo(0,h/2); x.lineTo(w,h/2); x.stroke();
-  const t0=G.t-2, t1=G.t+8, nowX=w*0.2;
-  const line=(arr,col)=>{ x.strokeStyle=col; x.beginPath();
-    for (let px=0;px<w;px++){ const t=t0+(t1-t0)*px/w, y=h/2-sampleArr(arr,t)*(h/2-6); px?x.lineTo(px,y):x.moveTo(px,y); } x.stroke(); };
-  line(CURVE.raw,'#888'); line(CURVE.f,'#00f0ff');
-  x.strokeStyle='#ff007f'; x.beginPath(); x.moveTo(nowX,0); x.lineTo(nowX,h); x.stroke();
-}
-
-/* ------------------------------------------------------------------ */
-/*  FLOW MANAGEMENT                                                   */
-/* ------------------------------------------------------------------ */
+/* MODAL & GAME FLOW */
 function showLoading(txt,p){ const l=$('loading'); l.classList.remove('hidden'); l.classList.add('flex'); $('load-text').textContent=txt; $('load-bar').style.width=Math.round(p*100)+'%'; }
 function hideLoading(){ const l=$('loading'); l.classList.add('hidden'); l.classList.remove('flex'); }
-function enableStart(name){
-  $('file-name-display').textContent=name;
-  const b=$('start-btn'); b.disabled=false; b.classList.remove('opacity-50','cursor-not-allowed');
+
+function updateReadyStatus(){
+  if (songBuffer) {
+    $('start-prompt-text').innerHTML = '<i class="fa-solid fa-play mr-2"></i>CHẠM VÀO MÀN HÌNH ĐỂ BẮT ĐẦU LÁI';
+    $('start-prompt-text').className = "text-cyan-300 text-sm md:text-base font-semibold tracking-wider animate-pulse neon-cyan";
+  } else {
+    $('start-prompt-text').innerHTML = '<i class="fa-solid fa-gear mr-2"></i>MỞ SETTINGS ĐỂ CHỌN BÀI HÁT / DEMO';
+    $('start-prompt-text').className = "text-pink-400 text-sm md:text-base font-semibold tracking-wider animate-pulse";
+  }
 }
+
 async function prepareBuffer(buf,name){
   try{
     showLoading('Đang phân tích nhạc...',0);
     FEAT=await analyzeBuffer(buf,p=>showLoading('Đang phân tích nhạc...',p));
     CM={off:FEAT.off,fr:FEAT.fr};
-    songBuffer=buf; enableStart(name+' ('+Math.round(buf.duration)+'s)');
+    songBuffer=buf; 
+    $('file-name-display').textContent=name+' ('+Math.round(buf.duration)+'s)';
+    updateReadyStatus();
   }catch(err){ alert('Không phân tích được bài này: '+err.message); }
   hideLoading();
 }
+
 $('audio-file-input').addEventListener('change',async e=>{
   const file=e.target.files[0]; if (!file) return;
   try{
@@ -822,6 +854,7 @@ $('audio-file-input').addEventListener('change',async e=>{
     await prepareBuffer(buf,file.name);
   }catch(err){ hideLoading(); alert('Không đọc được file âm thanh.'); }
 });
+
 $('demo-btn').addEventListener('click',async()=>{
   showLoading('Đang tạo nhạc demo...',0.05);
   try{ const buf=await makeDemoBuffer(); await prepareBuffer(buf,'Demo Synthwave'); }
@@ -833,41 +866,61 @@ $('sl-smooth').addEventListener('input',e=>{ UI.smooth=+e.target.value; $('v-smo
 $('sl-curve').addEventListener('input',e=>{ UI.maxDeg=+e.target.value; $('v-curve').textContent=UI.maxDeg+'°'; });
 $('sl-drift').addEventListener('input',e=>{ UI.drift=+e.target.value; $('v-drift').textContent=UI.drift.toFixed(1)+'x'; });
 $('res-sel').addEventListener('change',e=>{ UI.lines=+e.target.value; onResize(); });
-$('chk-tilt').addEventListener('change', e => { UI.useTilt = e.target.checked; if(UI.useTilt) requestTiltPermission(); });
-$('sl-tiltsens').addEventListener('input', e => { UI.tiltMaxDeg = +e.target.value; $('v-tiltsens').textContent = UI.tiltMaxDeg + '°'; });
 
 function stopSource(){ if (srcNode){ try{ srcNode.stop(); }catch(_){} try{ srcNode.disconnect(); }catch(_){} srcNode=null; } }
 
-async function startGame(){
-  if (!songBuffer) return;
-  ensureCtx(); await audioCtx.resume();
-  
-  // Yêu cầu quyền nghiêng thiết bị nếu đang bật
-  if (UI.useTilt) await requestTiltPermission();
+function enableTilt(){
+  tiltVal=0; if (!UI.tilt){ tiltOn=false; return Promise.resolve(); }
+  const D=window.DeviceMotionEvent;
+  if (D && typeof D.requestPermission==='function') return D.requestPermission().then(r=>{ tiltOn=r==='granted'; }).catch(()=>{ tiltOn=false; });
+  tiltOn=true; return Promise.resolve();
+}
+function goLandscape(){
+  if (!matchMedia('(pointer:coarse)').matches) return;
+  try{ const r=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+    Promise.resolve(r).then(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape')).catch(()=>{}); }catch(_){}
+}
 
+async function startGame(){
+  if (!songBuffer) {
+    openSettings();
+    return;
+  }
+  const ac = ensureCtx();
+  if (ac.state === 'suspended') {
+    await ac.resume();
+  }
+
+  const tp=enableTilt();
+  goLandscape(); await tp;
   stopSource();
   showLoading('Đang dựng đường đua...',0.5); await tick();
+  
   CURVE=buildCurve(FEAT);
   buildTrackData(CURVE.f,FEAT.duration);
   buildTrackMeshes(); buildObjects();
   hideLoading();
+  
   Object.assign(P,{d:0,vd:0,steer:0});
   Object.assign(G,{running:true,paused:false,over:false,t:-1.2,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0});
-  lastHUD=''; updateHUD();
+  updateHUD();
+  
   srcNode=audioCtx.createBufferSource(); srcNode.buffer=songBuffer; srcNode.connect(analyser);
   G.startAt=audioCtx.currentTime+1.2; srcNode.start(G.startAt);
-  $('upload-modal').classList.add('hidden');
-  $('gameover-modal').classList.add('hidden'); $('gameover-modal').classList.remove('flex');
   
-  // Hiển thị nút trên màn hình cảm ứng nếu không nghiêng hoặc trên thiết bị di động
-  if ('ontouchstart' in window||navigator.maxTouchPoints>0) {
-    $('touch-controls').classList.remove('hidden');
-  }
+  // UI States
+  $('start-overlay').classList.add('hidden');
+  $('settings-modal').classList.add('hidden');
+  $('gameover-modal').classList.add('hidden'); $('gameover-modal').classList.remove('flex');
+  $('score-display').classList.remove('hidden');
+  $('curve-graph-container').classList.remove('hidden');
+  $('zones').classList.remove('hidden');
 }
 
 function endGame(){
   G.running=false; G.over=true; stopSource();
   $('final-score').textContent=Math.floor(G.score).toString().padStart(6,'0');
+  $('zones').classList.add('hidden');
   const m=$('gameover-modal'); m.classList.remove('hidden'); m.classList.add('flex');
 }
 
@@ -879,18 +932,37 @@ function togglePause(){
   else { audioCtx.resume(); o.classList.add('hidden'); o.classList.remove('flex'); lastNow=performance.now(); }
 }
 
-$('start-btn').addEventListener('click',startGame);
-$('again-btn').addEventListener('click',startGame);
-$('other-btn').addEventListener('click',()=>{ const m=$('gameover-modal'); m.classList.add('hidden'); m.classList.remove('flex'); $('upload-modal').classList.remove('hidden'); });
-$('pause-overlay').addEventListener('click', togglePause);
+function openSettings() {
+  if (G.running && !G.paused) togglePause();
+  $('settings-modal').classList.remove('hidden');
+}
 
-/* ---- input bàn phím & cảm ứng nút bấm ---- */
+function closeSettings() {
+  $('settings-modal').classList.add('hidden');
+  updateReadyStatus();
+}
+
+$('open-settings-btn').addEventListener('click', (e) => { e.stopPropagation(); openSettings(); });
+$('close-settings-btn').addEventListener('click', closeSettings);
+$('start-from-settings-btn').addEventListener('click', () => { closeSettings(); startGame(); });
+
+// Tap Start
+$('start-overlay').addEventListener('click', startGame);
+
+$('again-btn').addEventListener('click', startGame);
+$('other-btn').addEventListener('click', () => { 
+  $('gameover-modal').classList.add('hidden'); 
+  $('gameover-modal').classList.remove('flex');
+  $('start-overlay').classList.remove('hidden');
+  openSettings();
+});
+
+/* INPUTS */
 window.addEventListener('keydown',e=>{
   const k=e.key;
   if (k==='ArrowLeft'||k==='a'||k==='A'){ keys.left=true; e.preventDefault(); }
   else if (k==='ArrowRight'||k==='d'||k==='D'){ keys.right=true; e.preventDefault(); }
   else if (k==='p'||k==='P'||k==='Escape') togglePause();
-  else if (k==='g'||k==='G'){ dbgOn=!dbgOn; $('debug-canvas').classList.toggle('hidden',!dbgOn); }
 });
 window.addEventListener('keyup',e=>{
   const k=e.key;
@@ -898,29 +970,62 @@ window.addEventListener('keyup',e=>{
   else if (k==='ArrowRight'||k==='d'||k==='D') keys.right=false;
 });
 
-function holdBtn(id,val){
-  const b=$(id);
-  b.addEventListener('pointerdown',e=>{ e.preventDefault(); touchSteer=val; });
-  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>{ if (touchSteer===val) touchSteer=0; }));
+let zl=0,zr=0,tiltOn=false,tiltVal=0;
+function zone(id,side){
+  const el=$(id), ids=new Set();
+  const upd=()=>{ if (side<0) zl=ids.size?1:0; else zr=ids.size?1:0; touchSteer=zr-zl; };
+  el.addEventListener('pointerdown',e=>{ e.preventDefault(); ids.add(e.pointerId); try{ el.setPointerCapture(e.pointerId); }catch(_){} upd(); });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>el.addEventListener(ev,e=>{ ids.delete(e.pointerId); upd(); }));
 }
-holdBtn('btn-left',-1); holdBtn('btn-right',1);
+zone('zl',-1); zone('zr',1);
+$('zones').addEventListener('contextmenu',e=>e.preventDefault());
+
+window.addEventListener('devicemotion',e=>{
+  if (!tiltOn) return;
+  const a=e.accelerationIncludingGravity; if (!a||a.x==null||a.y==null) return;
+  const ang=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(window.orientation||0), r=((ang%360)+360)%360;
+  let sx,sy;
+  if (r===90){ sx=-a.y; sy=a.x; } else if (r===270){ sx=a.y; sy=-a.x; } else if (r===180){ sx=-a.x; sy=-a.y; } else { sx=a.x; sy=a.y; }
+  const k=sy<0?-1:1, deg=-Math.atan2(sx*k,Math.abs(sy))*180/Math.PI;
+  tiltVal=clamp(Math.abs(deg)<4?0:(deg-4*Math.sign(deg))/22,-1,1);
+});
+$('ctrl-sel').addEventListener('change',e=>UI.tilt=e.target.value==='tilt');
+$('img-input').addEventListener('change',e=>{
+  const f=e.target.files[0]; if (!f) return; const img=new Image();
+  img.onload=()=>{ const r=themeFromImage(img); Object.assign(PAL,r.pal); applyTheme(); $('theme-note').textContent=r.note; URL.revokeObjectURL(img.src); };
+  img.src=URL.createObjectURL(f);
+});
+$('theme-reset').addEventListener('click',()=>{ Object.assign(PAL,PAL_DEF); applyTheme(); $('theme-note').textContent='mặc định'; });
+$('pause-overlay').addEventListener('click',()=>{ if (G.paused) togglePause(); });
+matchMedia('(orientation:portrait) and (pointer:coarse)').addEventListener('change',e=>{ if (e.matches&&G.running&&!G.paused) togglePause(); });
 document.addEventListener('visibilitychange',()=>{ if (document.hidden && G.running && !G.paused) togglePause(); });
 
-/* ------------------------------------------------------------------ */
-/*  MAIN LOOP                                                          */
-/* ------------------------------------------------------------------ */
+/* MAIN LOOP */
 let lastNow=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(0.05,(now-lastNow)/1000); lastNow=now;
-  readAudioViz();
+  
+  if (analyser && G.running && !G.paused) {
+    analyser.getByteFrequencyData(freqData);
+    const raw=(freqData[0]+freqData[1]+freqData[2])/(3*255);
+    G.bass=Math.max(raw,G.bass*0.9);
+  }
+
   if (G.running){ if (!G.paused) update(dt); }
   else idleScene(now/1000);
+  
   G.flash=Math.max(0,G.flash-dt*2.5); postMat.uniforms.uFlash.value=G.flash*0.5;
-  drawDebug();
+  drawCurveGraph();
+  
   renderer.setRenderTarget(rt); renderer.render(scene,camera);
   renderer.setRenderTarget(null); renderer.render(postScene,postCam);
 }
+
+// Khởi tạo bản demo sẵn
+makeDemoBuffer().then(buf => {
+  prepareBuffer(buf, 'Demo Synthwave');
+}).catch(() => {});
 
 initThree();
 buildTrackData(null,60);
