@@ -8,24 +8,58 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#07020f;
-    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; user-select:none; -webkit-user-select:none; }
-  #canvas-container { position:absolute; inset:0; z-index:1; }
-  #canvas-container canvas { display:block; }
-  .cyber-panel { background:rgba(15,10,30,.88); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-    border:1px solid rgba(255,0,128,.3); box-shadow:0 0 18px rgba(255,0,128,.18), inset 0 0 14px rgba(0,240,255,.08); }
-  .cyber-button { background:linear-gradient(135deg,#ff007f 0%,#7928ca 100%); transition:all .2s ease; box-shadow:0 0 14px rgba(255,0,127,.5); }
-  .cyber-button:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 0 24px rgba(255,0,127,.8); }
-  .neon-pink { text-shadow:0 0 8px rgba(255,0,128,.8),0 0 20px rgba(255,0,128,.5); }
-  .neon-cyan { text-shadow:0 0 8px rgba(0,240,255,.8),0 0 20px rgba(0,240,255,.5); }
-  #pop { position:absolute; left:50%; top:38%; transform:translateX(-50%); z-index:15; font-weight:900; font-size:28px;
-    color:#35f2ff; text-shadow:0 0 10px #00f0ff; opacity:0; pointer-events:none; }
-  #pop.show { animation:pop .7s ease-out; }
+  html, body { 
+    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; 
+    background: #07020f; font-family: 'Segoe UI', Roboto, sans-serif; 
+    user-select: none; -webkit-user-select: none; 
+  }
+
+  /* Khung chứa Game chính */
+  #game-viewport {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    transform-origin: center center;
+  }
+
+  /* Ép xoay ngang giao diện bằng CSS khi máy ở màn hình dọc */
+  @media (orientation: portrait) {
+    #game-viewport {
+      width: 100vh !important;
+      height: 100vw !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) rotate(90deg) !important;
+    }
+  }
+
+  #canvas-container { position: absolute; inset: 0; z-index: 1; }
+  #canvas-container canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  .cyber-panel { 
+    background: rgba(15, 10, 30, .88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 0, 128, .3); box-shadow: 0 0 18px rgba(255, 0, 128, .18), inset 0 0 14px rgba(0, 240, 255, .08); 
+  }
+  .cyber-button { 
+    background: linear-gradient(135deg, #ff007f 0%, #7928ca 100%); transition: all .2s ease; 
+    box-shadow: 0 0 14px rgba(255, 0, 127, .5); 
+  }
+  .cyber-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 24px rgba(255, 0, 127, .8); }
+  .neon-pink { text-shadow: 0 0 8px rgba(255, 0, 128, .8), 0 0 20px rgba(255, 0, 128, .5); }
+  .neon-cyan { text-shadow: 0 0 8px rgba(0, 240, 255, .8), 0 0 20px rgba(0, 240, 255, .5); }
+
+  #pop { 
+    position: absolute; left: 50%; top: 38%; transform: translateX(-50%); z-index: 15; 
+    font-weight: 900; font-size: 28px; color: #35f2ff; text-shadow: 0 0 10px #00f0ff; 
+    opacity: 0; pointer-events: none; 
+  }
+  #pop.show { animation: pop .7s ease-out; }
   @keyframes pop { 0%{opacity:1;transform:translate(-50%,0) scale(.8)} 100%{opacity:0;transform:translate(-50%,-40px) scale(1.15)} }
-  select, input[type=range] { width:100%; }
-  #rotate { display:none; position:fixed; inset:0; z-index:50; background:#000; align-items:center; justify-content:center; flex-direction:column; gap:16px; text-align:center; padding:32px; }
-  @media (orientation:portrait) and (pointer:coarse) { #rotate { display:flex; } }
-  select { background:#120a2a; border:1px solid rgba(0,240,255,.35); border-radius:6px; padding:4px 6px; color:#e5e7eb; font-size:12px; }
+
+  select, input[type=range] { width: 100%; }
+  select { background: #120a2a; border: 1px solid rgba(0, 240, 255, .35); border-radius: 6px; padding: 4px 6px; color: #e5e7eb; font-size: 12px; }
+
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
   ::-webkit-scrollbar-thumb { background: rgba(255,0,128,0.5); border-radius: 3px; }
@@ -33,157 +67,157 @@
 </head>
 <body class="text-white">
 
-<div id="canvas-container"></div>
-<div id="pop"></div>
-<div id="rotate"><i class="fa-solid fa-mobile-screen-button fa-rotate-90 text-5xl text-pink-500"></i><div class="text-lg font-bold text-cyan-300">Xoay ngang điện thoại để chơi</div></div>
+<div id="game-viewport">
+  <div id="canvas-container"></div>
+  <div id="pop"></div>
 
-<!-- HUD -->
-<div id="hud" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4">
-  <!-- Top Bar -->
-  <div class="flex justify-between items-start w-full">
-    <div></div>
-    
-    <div class="flex items-center gap-3 pointer-events-auto">
-      <!-- Đồ thị đường cong -->
-      <div id="curve-graph-container" class="cyber-panel p-1.5 rounded-lg border border-pink-500/40 bg-black/60 hidden">
-        <canvas id="debug-canvas" width="180" height="45" class="rounded"></canvas>
+  <!-- HUD -->
+  <div id="hud" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4">
+    <!-- Top Bar -->
+    <div class="flex justify-between items-start w-full">
+      <div></div>
+      <div class="flex items-center gap-3 pointer-events-auto">
+        <div id="curve-graph-container" class="cyber-panel p-1.5 rounded-lg border border-pink-500/40 bg-black/60 hidden">
+          <canvas id="debug-canvas" width="180" height="45" class="rounded"></canvas>
+        </div>
+        <button id="open-settings-btn" class="cyber-panel w-10 h-10 rounded-full flex items-center justify-center text-cyan-300 hover:text-pink-400 hover:scale-110 transition-all border border-cyan-400/40 shadow-lg">
+          <i class="fa-solid fa-gear text-lg"></i>
+        </button>
       </div>
-      
-      <!-- Icon Setting -->
-      <button id="open-settings-btn" class="cyber-panel w-10 h-10 rounded-full flex items-center justify-center text-cyan-300 hover:text-pink-400 hover:scale-110 transition-all border border-cyan-400/40 shadow-lg">
-        <i class="fa-solid fa-gear text-lg"></i>
-      </button>
     </div>
-  </div>
 
-  <!-- Bottom Bar: Duy nhất điểm số góc dưới phải -->
-  <div class="flex justify-end items-end w-full">
-    <div id="score-display" class="hidden text-right">
-      <div id="score-text" class="text-4xl md:text-5xl font-black neon-pink tracking-wider font-mono">000000</div>
-    </div>
-  </div>
-</div>
-
-<!-- Màn hình bắt đầu đơn giản -->
-<div id="start-overlay" class="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/30 cursor-pointer">
-  <div class="text-center space-y-3 pointer-events-none">
-    <h1 class="text-5xl md:text-7xl font-extrabold neon-pink tracking-widest italic drop-shadow-lg">SYNTH DRIVE</h1>
-    <p id="start-prompt-text" class="text-cyan-300 text-sm md:text-base font-semibold tracking-wider animate-pulse">
-      <i class="fa-solid fa-spinner fa-spin mr-2"></i>ĐANG TẢI DỮ LIỆU...
-    </p>
-  </div>
-</div>
-
-<!-- Vùng ẩn: chạm điều khiển -->
-<div id="zones" class="absolute inset-0 z-10 hidden" style="touch-action:none"><div id="zl" class="absolute left-0 top-0 w-1/2 h-full"></div><div id="zr" class="absolute right-0 top-0 w-1/2 h-full"></div></div>
-
-<!-- TAB SETTINGS / MENU -->
-<div id="settings-modal" class="fixed inset-0 z-30 hidden flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-  <div class="cyber-panel p-5 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col gap-4 border-2 border-pink-500/50 shadow-2xl relative overflow-hidden">
-    <div class="flex justify-between items-center border-b border-white/10 pb-3">
-      <div class="flex items-center gap-2">
-        <i class="fa-solid fa-sliders text-pink-500"></i>
-        <h2 class="text-lg font-bold text-cyan-300 uppercase tracking-wider">Cài Đặt & Nhạc</h2>
+    <!-- Bottom Bar: Điểm số duy nhất ở góc dưới phải -->
+    <div class="flex justify-end items-end w-full">
+      <div id="score-display" class="hidden text-right">
+        <div id="score-text" class="text-4xl md:text-5xl font-black neon-pink tracking-wider font-mono">000000</div>
       </div>
-      <button id="close-settings-btn" class="text-gray-400 hover:text-white text-lg w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
     </div>
+  </div>
 
-    <div class="space-y-4 overflow-y-auto pr-1 text-xs">
-      <div class="space-y-2">
-        <div class="font-bold text-pink-400 flex items-center gap-1"><i class="fa-solid fa-music"></i> NGUỒN NHẠC</div>
-        <label for="audio-file-input" class="w-full cursor-pointer flex flex-col items-center justify-center p-3 border-2 border-dashed border-cyan-400/50 hover:border-cyan-400 rounded-xl bg-cyan-950/30 transition-all">
-          <i class="fa-solid fa-cloud-arrow-up text-2xl text-cyan-400 mb-1"></i>
-          <span class="text-xs font-semibold text-gray-200 text-center" id="file-name-display">Tải lên file MP3 / WAV / OGG</span>
-          <input type="file" id="audio-file-input" accept="audio/*" class="hidden" />
-        </label>
-        <button id="demo-btn" class="w-full py-2 bg-white/5 hover:bg-white/10 border border-pink-500/30 rounded-lg text-pink-300 font-medium transition-all text-center">
-          <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Dùng bài Demo (Synth 48s)
+  <!-- Màn hình bắt đầu đơn giản -->
+  <div id="start-overlay" class="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/30 cursor-pointer">
+    <div class="text-center space-y-3 pointer-events-none">
+      <h1 class="text-5xl md:text-7xl font-extrabold neon-pink tracking-widest italic drop-shadow-lg">SYNTH DRIVE</h1>
+      <p id="start-prompt-text" class="text-cyan-300 text-sm md:text-base font-semibold tracking-wider animate-pulse">
+        <i class="fa-solid fa-spinner fa-spin mr-2"></i>ĐANG TẢI DỮ LIỆU...
+      </p>
+    </div>
+  </div>
+
+  <!-- Vùng ẩn điều khiển -->
+  <div id="zones" class="absolute inset-0 z-10 hidden" style="touch-action:none">
+    <div id="zl" class="absolute left-0 top-0 w-1/2 h-full"></div>
+    <div id="zr" class="absolute right-0 top-0 w-1/2 h-full"></div>
+  </div>
+
+  <!-- TAB SETTINGS -->
+  <div id="settings-modal" class="fixed inset-0 z-30 hidden flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+    <div class="cyber-panel p-5 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col gap-4 border-2 border-pink-500/50 shadow-2xl relative overflow-hidden">
+      <div class="flex justify-between items-center border-b border-white/10 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-pink-500"></i>
+          <h2 class="text-lg font-bold text-cyan-300 uppercase tracking-wider">Cài Đặt & Nhạc</h2>
+        </div>
+        <button id="close-settings-btn" class="text-gray-400 hover:text-white text-lg w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">
+          <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
-        <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-route"></i> THÔNG SỐ ĐƯỜNG CUA</div>
-        <div>
-          <div class="text-gray-300 mb-1">Cua theo:</div>
-          <select id="mode-sel">
-            <option value="melody">Giai điệu (cao độ lên → phải, xuống → trái)</option>
-            <option value="beat">Nhịp (mỗi nhịp mạnh đổi hướng)</option>
-            <option value="mix">Kết hợp giai điệu + nhịp</option>
-          </select>
+      <div class="space-y-4 overflow-y-auto pr-1 text-xs">
+        <div class="space-y-2">
+          <div class="font-bold text-pink-400 flex items-center gap-1"><i class="fa-solid fa-music"></i> NGUỒN NHẠC</div>
+          <label for="audio-file-input" class="w-full cursor-pointer flex flex-col items-center justify-center p-3 border-2 border-dashed border-cyan-400/50 hover:border-cyan-400 rounded-xl bg-cyan-950/30 transition-all">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl text-cyan-400 mb-1"></i>
+            <span class="text-xs font-semibold text-gray-200 text-center" id="file-name-display">Tải lên file MP3 / WAV / OGG</span>
+            <input type="file" id="audio-file-input" accept="audio/*" class="hidden" />
+          </label>
+          <button id="demo-btn" class="w-full py-2 bg-white/5 hover:bg-white/10 border border-pink-500/30 rounded-lg text-pink-300 font-medium transition-all text-center">
+            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Dùng bài Demo (Synth 48s)
+          </button>
         </div>
-        <div>
-          <div class="flex justify-between text-gray-300"><span>Độ mượt (lọc nhiễu)</span><span id="v-smooth" class="text-cyan-300">0.50s</span></div>
-          <input id="sl-smooth" type="range" min="0.2" max="1.2" step="0.05" value="0.5" class="accent-pink-500">
-        </div>
-        <div>
-          <div class="flex justify-between text-gray-300"><span>Độ gắt (góc lệch max)</span><span id="v-curve" class="text-cyan-300">40°</span></div>
-          <input id="sl-curve" type="range" min="15" max="60" step="1" value="40" class="accent-pink-500">
-        </div>
-        <div>
-          <div class="flex justify-between text-gray-300"><span>Lực văng khi cua</span><span id="v-drift" class="text-cyan-300">1.0x</span></div>
-          <input id="sl-drift" type="range" min="0.4" max="2" step="0.1" value="1" class="accent-pink-500">
-        </div>
-      </div>
 
-      <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
-        <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-gamepad"></i> ĐIỀU KHIỂN & ĐỒ HỌA</div>
-        <div>
-          <div class="text-gray-300 mb-1">Điều khiển:</div>
-          <select id="ctrl-sel"><option value="zone">Chạm vùng trái / phải</option><option value="tilt">Nghiêng máy (Di động) + Chạm</option></select>
-        </div>
-        <div>
-          <div class="text-gray-300 mb-1">Độ phân giải PS1:</div>
-          <select id="res-sel">
-            <option value="180">Thô (180p)</option>
-            <option value="240" selected>PS1 (240p)</option>
-            <option value="360">Mịn hơn (360p)</option>
-          </select>
-        </div>
-        <div>
-          <div class="text-gray-300 mb-1">Màu Theme theo ảnh:</div>
-          <div class="flex items-center gap-2">
-            <label class="px-2 py-1 rounded border border-cyan-400/50 text-cyan-300 cursor-pointer hover:bg-cyan-950/40">
-              Chọn ảnh <input type="file" id="img-input" accept="image/*" class="hidden">
-            </label>
-            <span id="sw-a" class="w-5 h-5 rounded border border-white/30" style="background:#ff2d95"></span>
-            <span id="sw-b" class="w-5 h-5 rounded border border-white/30" style="background:#35f2ff"></span>
-            <button id="theme-reset" class="text-pink-400 underline ml-auto">Reset</button>
+        <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
+          <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-route"></i> THÔNG SỐ ĐƯỜNG CUA</div>
+          <div>
+            <div class="text-gray-300 mb-1">Cua theo:</div>
+            <select id="mode-sel">
+              <option value="melody">Giai điệu (cao độ lên → phải, xuống → trái)</option>
+              <option value="beat">Nhịp (mỗi nhịp mạnh đổi hướng)</option>
+              <option value="mix">Kết hợp giai điệu + nhịp</option>
+            </select>
           </div>
-          <div id="theme-note" class="text-[10px] text-gray-400 mt-1">mặc định</div>
+          <div>
+            <div class="flex justify-between text-gray-300"><span>Độ mượt (lọc nhiễu)</span><span id="v-smooth" class="text-cyan-300">0.50s</span></div>
+            <input id="sl-smooth" type="range" min="0.2" max="1.2" step="0.05" value="0.5" class="accent-pink-500">
+          </div>
+          <div>
+            <div class="flex justify-between text-gray-300"><span>Độ gắt (góc lệch max)</span><span id="v-curve" class="text-cyan-300">40°</span></div>
+            <input id="sl-curve" type="range" min="15" max="60" step="1" value="40" class="accent-pink-500">
+          </div>
+          <div>
+            <div class="flex justify-between text-gray-300"><span>Lực văng khi cua</span><span id="v-drift" class="text-cyan-300">1.0x</span></div>
+            <input id="sl-drift" type="range" min="0.4" max="2" step="0.1" value="1" class="accent-pink-500">
+          </div>
+        </div>
+
+        <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
+          <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-gamepad"></i> ĐIỀU KHIỂN & ĐỒ HỌA</div>
+          <div>
+            <div class="text-gray-300 mb-1">Điều khiển:</div>
+            <select id="ctrl-sel"><option value="zone">Chạm vùng trái / phải</option><option value="tilt">Nghiêng máy + Chạm</option></select>
+          </div>
+          <div>
+            <div class="text-gray-300 mb-1">Độ phân giải PS1:</div>
+            <select id="res-sel">
+              <option value="180">Thô (180p)</option>
+              <option value="240" selected>PS1 (240p)</option>
+              <option value="360">Mịn hơn (360p)</option>
+            </select>
+          </div>
+          <div>
+            <div class="text-gray-300 mb-1">Màu Theme theo ảnh:</div>
+            <div class="flex items-center gap-2">
+              <label class="px-2 py-1 rounded border border-cyan-400/50 text-cyan-300 cursor-pointer hover:bg-cyan-950/40">
+                Chọn ảnh <input type="file" id="img-input" accept="image/*" class="hidden">
+              </label>
+              <span id="sw-a" class="w-5 h-5 rounded border border-white/30" style="background:#ff2d95"></span>
+              <span id="sw-b" class="w-5 h-5 rounded border border-white/30" style="background:#35f2ff"></span>
+              <button id="theme-reset" class="text-pink-400 underline ml-auto">Reset</button>
+            </div>
+            <div id="theme-note" class="text-[10px] text-gray-400 mt-1">mặc định</div>
+          </div>
         </div>
       </div>
+
+      <button id="start-from-settings-btn" class="cyber-button w-full py-2.5 rounded-xl font-bold text-white tracking-wider">BẮT ĐẦU LÁI</button>
     </div>
-
-    <button id="start-from-settings-btn" class="cyber-button w-full py-2.5 rounded-xl font-bold text-white tracking-wider">BẮT ĐẦU LÁI</button>
   </div>
-</div>
 
-<!-- Loading -->
-<div id="loading" class="fixed inset-0 z-40 hidden flex-col items-center justify-center bg-black/85 gap-3">
-  <div id="load-text" class="text-cyan-300 text-sm tracking-wider">Đang xử lý...</div>
-  <div class="w-64 h-2 bg-white/10 rounded overflow-hidden"><div id="load-bar" class="h-full bg-pink-500" style="width:0%"></div></div>
-</div>
-
-<!-- Pause -->
-<div id="pause-overlay" class="fixed inset-0 z-30 hidden items-center justify-center bg-black/60">
-  <div class="cyber-panel px-8 py-6 rounded-2xl text-center">
-    <div class="text-3xl font-black neon-pink tracking-widest">TẠM DỪNG</div>
-    <div class="text-xs text-gray-300 mt-2">Nhấn P hoặc chạm màn hình để tiếp tục</div>
+  <!-- Loading -->
+  <div id="loading" class="fixed inset-0 z-40 hidden flex-col items-center justify-center bg-black/85 gap-3">
+    <div id="load-text" class="text-cyan-300 text-sm tracking-wider">Đang xử lý...</div>
+    <div class="w-64 h-2 bg-white/10 rounded overflow-hidden"><div id="load-bar" class="h-full bg-pink-500" style="width:0%"></div></div>
   </div>
-</div>
 
-<!-- Game over -->
-<div id="gameover-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-  <div class="cyber-panel p-8 rounded-2xl max-w-md w-full text-center flex flex-col items-center gap-5 border-2 border-pink-500/50">
-    <h2 class="text-2xl font-extrabold text-cyan-300 tracking-widest">HẾT BÀI</h2>
-    <div>
-      <div class="text-xs text-gray-400 uppercase tracking-widest">Tổng điểm</div>
-      <div id="final-score" class="text-5xl font-black neon-pink my-2">000000</div>
+  <!-- Pause -->
+  <div id="pause-overlay" class="fixed inset-0 z-30 hidden items-center justify-center bg-black/60">
+    <div class="cyber-panel px-8 py-6 rounded-2xl text-center">
+      <div class="text-3xl font-black neon-pink tracking-widest">TẠM DỪNG</div>
+      <div class="text-xs text-gray-300 mt-2">Nhấn P hoặc chạm màn hình để tiếp tục</div>
     </div>
-    <button id="again-btn" class="cyber-button w-full py-3 rounded-xl font-bold text-white">CHƠI LẠI BÀI NÀY</button>
-    <button id="other-btn" class="w-full py-3 rounded-xl font-bold text-cyan-300 border border-cyan-400/50 hover:bg-cyan-900/30">CÀI ĐẶT / ĐỔI BÀI HÁT</button>
+  </div>
+
+  <!-- Game over -->
+  <div id="gameover-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="cyber-panel p-8 rounded-2xl max-w-md w-full text-center flex flex-col items-center gap-5 border-2 border-pink-500/50">
+      <h2 class="text-2xl font-extrabold text-cyan-300 tracking-widest">HẾT BÀI</h2>
+      <div>
+        <div class="text-xs text-gray-400 uppercase tracking-widest">Tổng điểm</div>
+        <div id="final-score" class="text-5xl font-black neon-pink my-2">000000</div>
+      </div>
+      <button id="again-btn" class="cyber-button w-full py-3 rounded-xl font-bold text-white">CHƠI LẠI BÀI NÀY</button>
+      <button id="other-btn" class="w-full py-3 rounded-xl font-bold text-cyan-300 border border-cyan-400/50 hover:bg-cyan-900/30">CÀI ĐẶT / ĐỔI BÀI HÁT</button>
+    </div>
   </div>
 </div>
 
@@ -607,12 +641,22 @@ function initThree(){
   window.addEventListener('resize',onResize);
 }
 
+// Hàm Resize tính toán kích thước chiều rộng/chiều cao theo viewport ảo
 function onResize(){
-  const w=innerWidth,h=innerHeight;
-  renderer.setSize(w,h);
-  LH=UI.lines; LW=Math.max(64,Math.round(LH*w/h));
-  rt.setSize(LW,LH); postMat.uniforms.uRes.value.set(LW,LH); SNAP.value.set(LW,LH);
-  camera.aspect=w/h; camera.updateProjectionMatrix();
+  const vp = $('game-viewport');
+  const w = vp.clientWidth;
+  const h = vp.clientHeight;
+
+  renderer.setSize(w, h, false);
+  LH = UI.lines; 
+  LW = Math.max(64, Math.round(LH * (w / h)));
+  
+  rt.setSize(LW, LH); 
+  postMat.uniforms.uRes.value.set(LW, LH); 
+  SNAP.value.set(LW, LH);
+  
+  camera.aspect = w / h; 
+  camera.updateProjectionMatrix();
 }
 
 function applyTheme(){
@@ -875,11 +919,6 @@ function enableTilt(){
   if (D && typeof D.requestPermission==='function') return D.requestPermission().then(r=>{ tiltOn=r==='granted'; }).catch(()=>{ tiltOn=false; });
   tiltOn=true; return Promise.resolve();
 }
-function goLandscape(){
-  if (!matchMedia('(pointer:coarse)').matches) return;
-  try{ const r=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
-    Promise.resolve(r).then(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape')).catch(()=>{}); }catch(_){}
-}
 
 async function startGame(){
   if (!songBuffer) {
@@ -892,7 +931,7 @@ async function startGame(){
   }
 
   const tp=enableTilt();
-  goLandscape(); await tp;
+  await tp;
   stopSource();
   showLoading('Đang dựng đường đua...',0.5); await tick();
   
@@ -980,15 +1019,34 @@ function zone(id,side){
 zone('zl',-1); zone('zr',1);
 $('zones').addEventListener('contextmenu',e=>e.preventDefault());
 
-window.addEventListener('devicemotion',e=>{
+/* Tính toán độ nghiêng máy chuẩn xác bất kể máy dọc hay ngang (Dành cho iOS/iPhone) */
+window.addEventListener('devicemotion', e => {
   if (!tiltOn) return;
-  const a=e.accelerationIncludingGravity; if (!a||a.x==null||a.y==null) return;
-  const ang=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(window.orientation||0), r=((ang%360)+360)%360;
-  let sx,sy;
-  if (r===90){ sx=-a.y; sy=a.x; } else if (r===270){ sx=a.y; sy=-a.x; } else if (r===180){ sx=-a.x; sy=-a.y; } else { sx=a.x; sy=a.y; }
-  const k=sy<0?-1:1, deg=-Math.atan2(sx*k,Math.abs(sy))*180/Math.PI;
-  tiltVal=clamp(Math.abs(deg)<4?0:(deg-4*Math.sign(deg))/22,-1,1);
+  const a = e.accelerationIncludingGravity; 
+  if (!a || a.x == null || a.y == null) return;
+  
+  const isPortrait = window.innerHeight > window.innerWidth;
+  let deg = 0;
+
+  if (isPortrait) {
+    // Khi đang ép xoay ngang CSS trên màn hình dọc (Portrait)
+    deg = Math.atan2(a.y, a.x) * 180 / Math.PI;
+  } else {
+    // Khi xoay ngang thật (Landscape)
+    const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0);
+    const r = ((ang % 360) + 360) % 360;
+    let sx, sy;
+    if (r === 90) { sx = -a.y; sy = a.x; } 
+    else if (r === 270) { sx = a.y; sy = -a.x; } 
+    else if (r === 180) { sx = -a.x; sy = -a.y; } 
+    else { sx = a.x; sy = a.y; }
+    const k = sy < 0 ? -1 : 1;
+    deg = -Math.atan2(sx * k, Math.abs(sy)) * 180 / Math.PI;
+  }
+
+  tiltVal = clamp(Math.abs(deg) < 4 ? 0 : (deg - 4 * Math.sign(deg)) / 22, -1, 1);
 });
+
 $('ctrl-sel').addEventListener('change',e=>UI.tilt=e.target.value==='tilt');
 $('img-input').addEventListener('change',e=>{
   const f=e.target.files[0]; if (!f) return; const img=new Image();
@@ -997,7 +1055,7 @@ $('img-input').addEventListener('change',e=>{
 });
 $('theme-reset').addEventListener('click',()=>{ Object.assign(PAL,PAL_DEF); applyTheme(); $('theme-note').textContent='mặc định'; });
 $('pause-overlay').addEventListener('click',()=>{ if (G.paused) togglePause(); });
-matchMedia('(orientation:portrait) and (pointer:coarse)').addEventListener('change',e=>{ if (e.matches&&G.running&&!G.paused) togglePause(); });
+
 document.addEventListener('visibilitychange',()=>{ if (document.hidden && G.running && !G.paused) togglePause(); });
 
 /* MAIN LOOP */
