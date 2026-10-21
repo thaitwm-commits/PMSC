@@ -1,1 +1,933 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Synth Drive PS1 - iOS Tilt Supported</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#07020f;
+    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; user-select:none; -webkit-user-select:none; }
+  #canvas-container { position:absolute; inset:0; z-index:1; }
+  #canvas-container canvas { display:block; }
+  .cyber-panel { background:rgba(15,10,30,.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,0,128,.3); box-shadow:0 0 18px rgba(255,0,128,.18), inset 0 0 14px rgba(0,240,255,.08); }
+  .cyber-button { background:linear-gradient(135deg,#ff007f 0%,#7928ca 100%); transition:all .2s ease; box-shadow:0 0 14px rgba(255,0,127,.5); }
+  .cyber-button:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 0 24px rgba(255,0,127,.8); }
+  .neon-pink { text-shadow:0 0 8px rgba(255,0,128,.8),0 0 20px rgba(255,0,128,.5); }
+  #pop { position:absolute; left:50%; top:38%; transform:translateX(-50%); z-index:15; font-weight:900; font-size:28px;
+    color:#35f2ff; text-shadow:0 0 10px #00f0ff; opacity:0; pointer-events:none; }
+  #pop.show { animation:pop .7s ease-out; }
+  @keyframes pop { 0%{opacity:1;transform:translate(-50%,0) scale(.8)} 100%{opacity:0;transform:translate(-50%,-40px) scale(1.15)} }
+  select, input[type=range] { width:100%; }
+  select { background:#120a2a; border:1px solid rgba(0,240,255,.35); border-radius:6px; padding:4px 6px; color:#e5e7eb; font-size:12px; }
+</style>
+</head>
+<body class="text-white">
 
+<div id="canvas-container"></div>
+<div id="pop"></div>
+
+<!-- HUD -->
+<div id="hud" class="absolute top-0 left-0 right-0 z-20 p-3 flex justify-between items-start pointer-events-none">
+  <div class="cyber-panel p-3 rounded-xl flex flex-col gap-1 min-w-[130px]">
+    <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">SCORE</span>
+    <span id="score-text" class="text-xl md:text-2xl font-black neon-pink tracking-wider">000000</span>
+    <div class="flex items-center gap-2 text-xs">
+      <span class="text-gray-400">COMBO</span><span id="combo-text" class="font-bold text-cyan-300">0</span>
+      <span class="text-gray-400">x</span><span id="multiplier-text" class="font-bold text-yellow-400">1</span>
+    </div>
+  </div>
+  <div class="cyber-panel p-2 rounded-xl w-36 md:w-72">
+    <div class="text-[10px] font-bold tracking-wider text-pink-500 mb-1"><i class="fa-solid fa-music mr-1"></i>AUDIO</div>
+    <canvas id="visualizer-canvas" class="w-full h-8 rounded bg-black/40"></canvas>
+  </div>
+</div>
+
+<!-- Debug -->
+<canvas id="debug-canvas" class="absolute left-3 bottom-3 z-20 cyber-panel rounded-lg hidden" width="360" height="90"></canvas>
+
+<!-- Touch controls -->
+<div id="touch-controls" class="absolute bottom-0 left-0 right-0 z-20 p-5 flex justify-between pointer-events-none hidden">
+  <button id="btn-left" class="cyber-panel w-20 h-20 md:w-24 md:h-24 rounded-full text-2xl md:text-3xl text-cyan-400 pointer-events-auto border-2 border-cyan-500" style="touch-action:none"><i class="fa-solid fa-arrow-left"></i></button>
+  <button id="btn-right" class="cyber-panel w-20 h-20 md:w-24 md:h-24 rounded-full text-2xl md:text-3xl text-pink-500 pointer-events-auto border-2 border-pink-500" style="touch-action:none"><i class="fa-solid fa-arrow-right"></i></button>
+</div>
+
+<!-- Menu -->
+<div id="upload-modal" class="fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
+  <div class="cyber-panel p-6 rounded-2xl max-w-md w-full text-center flex flex-col items-center gap-4 border-2 border-pink-500/50 my-4">
+    <div>
+      <h1 class="text-3xl md:text-4xl font-extrabold neon-pink tracking-widest italic">SYNTH DRIVE</h1>
+      <p class="text-xs text-cyan-300 mt-1">Lái xe theo nhạc - Hỗ trợ Gyro iPhone/iPad</p>
+    </div>
+
+    <label for="audio-file-input" class="w-full cursor-pointer flex flex-col items-center justify-center p-4 border-2 border-dashed border-cyan-400/50 hover:border-cyan-400 rounded-xl bg-cyan-950/20 transition-all">
+      <i class="fa-solid fa-cloud-arrow-up text-3xl text-cyan-400 mb-2"></i>
+      <span class="text-sm font-semibold text-gray-200" id="file-name-display">Tải lên file MP3 / WAV / OGG</span>
+      <input type="file" id="audio-file-input" accept="audio/*" class="hidden" />
+    </label>
+    <button id="demo-btn" class="text-xs text-pink-400 hover:text-pink-300 underline">Hoặc chơi bản Demo (tự tổng hợp, 48 giây)</button>
+
+    <div class="w-full text-left text-xs space-y-3 bg-black/40 p-3 rounded-lg border border-white/10">
+      <div class="font-bold text-cyan-400 flex justify-between items-center">
+        <span><i class="fa-solid fa-mobile-screen-button mr-1"></i> ĐIỀU KHIỂN BẰNG NGHIÊNG MÀN HÌNH</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-gray-300">Bật cảm biến nghiêng (iOS/Mobile):</span>
+        <input type="checkbox" id="chk-tilt" class="w-4 h-4 accent-pink-500 cursor-pointer" checked>
+      </div>
+      <div>
+        <div class="flex justify-between text-gray-300"><span>Độ nhạy nghiêng</span><span id="v-tiltsens" class="text-cyan-300">15°</span></div>
+        <input id="sl-tiltsens" type="range" min="5" max="30" step="1" value="15" class="accent-pink-500">
+      </div>
+    </div>
+
+    <div class="w-full text-left text-xs space-y-3 bg-black/40 p-3 rounded-lg border border-white/10">
+      <div class="font-bold text-cyan-400"><i class="fa-solid fa-sliders mr-1"></i> TINH CHỈNH ĐƯỜNG CUA</div>
+      <div>
+        <div class="text-gray-300 mb-1">Cua theo:</div>
+        <select id="mode-sel">
+          <option value="melody">Giai điệu (cao độ lên → cua phải, xuống → cua trái)</option>
+          <option value="beat">Nhịp (mỗi nhịp mạnh đổi hướng lắc)</option>
+          <option value="mix">Kết hợp giai điệu + nhịp</option>
+        </select>
+      </div>
+      <div>
+        <div class="flex justify-between text-gray-300"><span>Độ mượt (lọc nhiễu)</span><span id="v-smooth" class="text-cyan-300">0.50s</span></div>
+        <input id="sl-smooth" type="range" min="0.2" max="1.2" step="0.05" value="0.5" class="accent-pink-500">
+      </div>
+      <div>
+        <div class="flex justify-between text-gray-300"><span>Độ gắt (góc lệch tối đa)</span><span id="v-curve" class="text-cyan-300">40°</span></div>
+        <input id="sl-curve" type="range" min="15" max="60" step="1" value="40" class="accent-pink-500">
+      </div>
+      <div>
+        <div class="flex justify-between text-gray-300"><span>Lực văng khi cua</span><span id="v-drift" class="text-cyan-300">1.0x</span></div>
+        <input id="sl-drift" type="range" min="0.4" max="2" step="0.1" value="1" class="accent-pink-500">
+      </div>
+      <div>
+        <div class="text-gray-300 mb-1">Độ phân giải kiểu PS1:</div>
+        <select id="res-sel">
+          <option value="180">Thô (180p)</option>
+          <option value="240" selected>PS1 (240p)</option>
+          <option value="360">Mịn hơn (360p)</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="start-btn" disabled class="cyber-button w-full py-3 rounded-xl font-black text-lg tracking-wider opacity-50 cursor-not-allowed">BẮT ĐẦU LÁI</button>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="fixed inset-0 z-40 hidden flex-col items-center justify-center bg-black/85 gap-3">
+  <div id="load-text" class="text-cyan-300 text-sm tracking-wider">Đang xử lý...</div>
+  <div class="w-64 h-2 bg-white/10 rounded overflow-hidden"><div id="load-bar" class="h-full bg-pink-500" style="width:0%"></div></div>
+</div>
+
+<!-- Pause -->
+<div id="pause-overlay" class="fixed inset-0 z-30 hidden items-center justify-center bg-black/60">
+  <div class="cyber-panel px-8 py-6 rounded-2xl text-center">
+    <div class="text-3xl font-black neon-pink tracking-widest">TẠM DỪNG</div>
+    <div class="text-xs text-gray-300 mt-2">Chạm vào màn hình để tiếp tục</div>
+  </div>
+</div>
+
+<!-- Game over -->
+<div id="gameover-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+  <div class="cyber-panel p-8 rounded-2xl max-w-md w-full text-center flex flex-col items-center gap-5 border-2 border-pink-500/50">
+    <h2 class="text-2xl font-extrabold text-cyan-300 tracking-widest">HẾT BÀI</h2>
+    <div>
+      <div class="text-xs text-gray-400 uppercase tracking-widest">Tổng điểm</div>
+      <div id="final-score" class="text-5xl font-black neon-pink my-2">000000</div>
+    </div>
+    <button id="again-btn" class="cyber-button w-full py-3 rounded-xl font-bold text-white">CHƠI LẠI BÀI NÀY</button>
+    <button id="other-btn" class="w-full py-3 rounded-xl font-bold text-cyan-300 border border-cyan-400/50 hover:bg-cyan-900/30">CHỌN BÀI KHÁC / ĐỔI THÔNG SỐ</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const clamp = (x,a,b) => x<a?a:(x>b?b:x);
+const lerp = (a,b,t) => a+(b-a)*t;
+const smoothstep = (a,b,x) => { const t = clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+const CFG = { speed:38, halfW:8, ds:1.5, padBack:60, padFwd:420, fftN:2048, hop:1024 };
+const UI  = { mode:'melody', smooth:0.5, maxDeg:40, drift:1, lines:240, useTilt: true, tiltMaxDeg: 15 };
+const HORIZON = 0x4a1670;
+const STEER_ACC = 34, DRIFT_K = 0.22;
+
+/* ------------------------------------------------------------------ */
+/*  AUDIO CONTEXT                                                      */
+/* ------------------------------------------------------------------ */
+let audioCtx=null, analyser=null, freqData=null, srcNode=null;
+function ensureCtx(){
+  if (audioCtx) return audioCtx;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AC();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.7;
+  analyser.connect(audioCtx.destination);
+  freqData = new Uint8Array(analyser.frequencyBinCount);
+  return audioCtx;
+}
+
+/* ------------------------------------------------------------------ */
+/*  DEMO TRACK                                                        */
+/* ------------------------------------------------------------------ */
+async function makeDemoBuffer(){
+  const sr=44100, bpm=120, beat=60/bpm, bars=24, dur=bars*4*beat+1.5;
+  const oc = new OfflineAudioContext(1, Math.ceil(sr*dur), sr);
+  const master = oc.createGain(); master.gain.value=0.6; master.connect(oc.destination);
+  const nb = oc.createBuffer(1, sr, sr), nd = nb.getChannelData(0);
+  for (let i=0;i<sr;i++) nd[i]=Math.random()*2-1;
+  const mtof = m => 440*Math.pow(2,(m-69)/12);
+  const env = (g,t,a,d,peak) => { g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(peak,t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+a+d); };
+  const kick = t => { const o=oc.createOscillator(), g=oc.createGain(); o.type='sine';
+    o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(42,t+0.12);
+    env(g,t,0.003,0.32,1.0); o.connect(g); g.connect(master); o.start(t); o.stop(t+0.4); };
+  const noise = (t,d,hp,peak) => { const s=oc.createBufferSource(); s.buffer=nb;
+    const f=oc.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp;
+    const g=oc.createGain(); env(g,t,0.002,d,peak); s.connect(f); f.connect(g); g.connect(master); s.start(t,Math.random()*0.5); s.stop(t+d+0.05); };
+  const tone = (type,fq,t,d,peak,lp) => { const o=oc.createOscillator(); o.type=type; o.frequency.value=fq;
+    const f=oc.createBiquadFilter(); f.type='lowpass'; f.frequency.value=lp;
+    const g=oc.createGain(); env(g,t,0.01,d,peak); o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t+d+0.1); };
+
+  const lead = [
+    [69,72,76,72,76,79,76,72],
+    [77,72,69,72,77,81,77,72],
+    [76,72,67,72,76,79,84,79],
+    [79,74,71,74,79,83,79,74]
+  ];
+  const roots = [45,41,48,43];
+  const shifts = [0,-12,0,5,-12,0];
+  for (let bar=0; bar<bars; bar++){
+    const t0=bar*4*beat, ci=bar%4, cyc=Math.floor(bar/4);
+    for (let b=0;b<4;b++){ kick(t0+b*beat); if (b%2===1) noise(t0+b*beat,0.16,2200,0.22); }
+    for (let e=0;e<8;e++){
+      const te=t0+e*beat/2;
+      if (e%2===1) noise(te,0.04,7500,0.10);
+      tone('sawtooth', mtof(roots[ci]+(e%2?12:0)), te, beat/2*0.9, 0.32, 380);
+      if (bar>=2) tone('square', mtof(lead[ci][e]+shifts[cyc%6]), te, beat/2*0.95, 0.12, 2600);
+    }
+  }
+  return await oc.startRendering();
+}
+
+/* ------------------------------------------------------------------ */
+/*  PHÂN TÍCH OFFLINE & LỌC TÍN HIỆU                                   */
+/* ------------------------------------------------------------------ */
+let FEAT=null, songBuffer=null;
+const tick = () => new Promise(r => setTimeout(r,0));
+
+async function analyzeBuffer(buf, progress){
+  const sr=buf.sampleRate, N=CFG.fftN, H=CFG.hop, half=N/2;
+  const len=buf.length, nch=buf.numberOfChannels;
+  if (len < N*8) throw new Error('Bài quá ngắn');
+  const chs=[]; for (let c=0;c<nch;c++) chs.push(buf.getChannelData(c));
+  let peak=1e-6;
+  for (let c=0;c<nch;c++){ const d=chs[c]; for (let i=0;i<len;i++){ const a=Math.abs(d[i]); if(a>peak) peak=a; } }
+  const g=1/peak/nch;
+  const nF=Math.floor((len-N)/H)+1;
+
+  const win=new Float32Array(N); for (let i=0;i<N;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/(N-1));
+  const bits=Math.log2(N)|0, rev=new Uint32Array(N);
+  for (let i=0;i<N;i++) rev[i]=(rev[i>>1]>>1)|((i&1)<<(bits-1));
+  const cosT=new Float32Array(half), sinT=new Float32Array(half);
+  for (let k=0;k<half;k++){ cosT[k]=Math.cos(2*Math.PI*k/N); sinT[k]=-Math.sin(2*Math.PI*k/N); }
+  const re=new Float32Array(N), im=new Float32Array(N);
+  function fft(){
+    for (let i=0;i<N;i++){ const j=rev[i]; if (j>i){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; } }
+    for (let size=2; size<=N; size<<=1){
+      const hs=size>>1, step=N/size;
+      for (let i=0;i<N;i+=size){
+        for (let j=0,k=0;j<hs;j++,k+=step){
+          const a=i+j, b=a+hs;
+          const tr=re[b]*cosT[k]-im[b]*sinT[k], ti=re[b]*sinT[k]+im[b]*cosT[k];
+          re[b]=re[a]-tr; im[b]=im[a]-ti; re[a]+=tr; im[a]+=ti;
+        }
+      }
+    }
+  }
+  const binHz=sr/N, kOf=f=>clamp(Math.round(f/binHz),1,half-1);
+  const mLo=kOf(200), mHi=kOf(2500);
+  const aLo=kOf(80),  aHi=kOf(6000);
+  const bLo=kOf(30),  bHi=kOf(150);
+  const lf=new Float32Array(half); for (let k=1;k<half;k++) lf[k]=Math.log2(k*binHz);
+  const prev=new Float32Array(half);
+  const cen=new Float32Array(nF), loud=new Float32Array(nF), fluxA=new Float32Array(nF), fluxB=new Float32Array(nF);
+
+  for (let f=0; f<nF; f++){
+    const off=f*H;
+    for (let i=0;i<N;i++){ let s=0; for (let c=0;c<nch;c++) s+=chs[c][off+i]; re[i]=s*g*win[i]; im[i]=0; }
+    fft();
+    let sw=0, sc=0, e=0, fa=0, fb=0;
+    for (let k=1;k<half;k++){
+      const m=Math.sqrt(re[k]*re[k]+im[k]*im[k])*4/N;
+      const lg=Math.log(1+40*m);
+      const d=lg-prev[k]; prev[k]=lg;
+      if (f>0 && d>0){ if (k>=aLo&&k<=aHi) fa+=d; if (k>=bLo&&k<=bHi) fb+=d; }
+      if (k>=mLo&&k<=mHi){ const w=m*Math.sqrt(m); sw+=w; sc+=w*lf[k]; e+=m*m; }
+    }
+    cen[f]=sw>1e-12?sc/sw:NaN; loud[f]=Math.sqrt(e); fluxA[f]=fa; fluxB[f]=fb;
+    if (f%150===149){ progress(f/nF); await tick(); }
+  }
+  return { sr, fr:sr/H, nF, cen, loud, fluxA, fluxB, duration:len/sr, off:(N/2)/sr };
+}
+
+function movAvg(a,w){
+  const n=a.length, out=new Float32Array(n), half=w>>1, pre=new Float64Array(n+1);
+  for (let i=0;i<n;i++) pre[i+1]=pre[i]+a[i];
+  for (let i=0;i<n;i++){ const lo=Math.max(0,i-half), hi=Math.min(n-1,i+half); out[i]=(pre[hi+1]-pre[lo])/(hi-lo+1); }
+  return out;
+}
+function gauss(a,sigma){
+  const n=a.length; if (sigma<0.5) return Float32Array.from(a);
+  const r=Math.ceil(sigma*3), k=new Float32Array(2*r+1); let s=0;
+  for (let i=-r;i<=r;i++){ k[i+r]=Math.exp(-0.5*(i/sigma)*(i/sigma)); s+=k[i+r]; }
+  for (let i=0;i<k.length;i++) k[i]/=s;
+  const out=new Float32Array(n);
+  for (let i=0;i<n;i++){ let acc=0; for (let j=-r;j<=r;j++){ const idx=i+j<0?0:(i+j>=n?n-1:i+j); acc+=a[idx]*k[j+r]; } out[i]=acc; }
+  return out;
+}
+function median(a,w){
+  const n=a.length, half=w>>1, out=new Float32Array(n), tmp=[];
+  for (let i=0;i<n;i++){ tmp.length=0; for (let j=-half;j<=half;j++){ const idx=i+j<0?0:(i+j>=n?n-1:i+j); tmp.push(a[idx]); } tmp.sort((x,y)=>x-y); out[i]=tmp[half]; }
+  return out;
+}
+function percentile(a,p){ const s=Float32Array.from(a).sort(); return s[Math.floor(p*(s.length-1))]; }
+function slew(a,maxStep){
+  const n=a.length, o=Float32Array.from(a);
+  for (let i=1;i<n;i++){ const d=o[i]-o[i-1]; if (d>maxStep) o[i]=o[i-1]+maxStep; else if (d<-maxStep) o[i]=o[i-1]-maxStep; }
+  for (let i=n-2;i>=0;i--){ const d=o[i]-o[i+1]; if (d>maxStep) o[i]=o[i+1]+maxStep; else if (d<-maxStep) o[i]=o[i+1]-maxStep; }
+  return o;
+}
+function pickPeaks(a,fr,gapSec,ratio,floorMul){
+  const n=a.length, lm=movAvg(a,(Math.round(fr)|1)); let mean=0; for (let i=0;i<n;i++) mean+=a[i]; mean/=n;
+  const gap=gapSec*fr, out=[];
+  for (let i=2;i<n-2;i++){
+    const v=a[i];
+    if (v>lm[i]*ratio+mean*floorMul && v>=a[i-1] && v>a[i+1] && v>=a[i-2] && v>a[i+2]){
+      const last=out.length?out[out.length-1]:-1e9;
+      if (i-last>=gap) out.push(i); else if (v>a[last]) out[out.length-1]=i;
+    }
+  }
+  return out;
+}
+
+function melodySignal(F){
+  const n=F.nF, Lp=percentile(F.loud,0.9), c=new Float32Array(n);
+  let last=NaN, first=-1;
+  for (let i=0;i<n;i++){
+    const ok=!isNaN(F.cen[i]) && F.loud[i]>0.04*Lp;
+    if (ok){ last=F.cen[i]; if (first<0) first=i; }
+    c[i]=last;
+  }
+  if (first<0) return new Float32Array(n);
+  for (let i=0;i<first;i++) c[i]=c[first];
+  const med=median(c,9);
+  const base=movAvg(med,(Math.round(8*F.fr)|1));
+  const dev=new Float32Array(n); let ss=0;
+  for (let i=0;i<n;i++){ dev[i]=med[i]-base[i]; ss+=dev[i]*dev[i]; }
+  const sd=Math.sqrt(ss/n)+1e-6;
+  const out=new Float32Array(n);
+  for (let i=0;i<n;i++) out[i]=Math.tanh(dev[i]/sd*0.9);
+  return out;
+}
+
+function beatSignal(F){
+  const n=F.nF, fl=gauss(F.fluxA,1), pk=pickPeaks(fl,F.fr,0.36,1.3,0.2), sq=new Float32Array(n);
+  let sign=1;
+  for (let k=0;k<pk.length;k++){ const a=pk[k], b=k+1<pk.length?pk[k+1]:n; for (let i=a;i<b;i++) sq[i]=sign; sign=-sign; }
+  return sq;
+}
+
+let CURVE=null, CM={off:0,fr:1};
+function buildCurve(F){
+  const n=F.nF, fr=F.fr;
+  const mel=melodySignal(F), bt=beatSignal(F), raw=new Float32Array(n);
+  for (let i=0;i<n;i++) raw[i]= UI.mode==='melody'?mel[i] : UI.mode==='beat'?bt[i] : clamp(0.75*mel[i]+0.6*bt[i],-1,1);
+  const ls=gauss(F.loud,0.15*fr), Lp=percentile(F.loud,0.9);
+  const gated=new Float32Array(n), dz=new Float32Array(n);
+  for (let i=0;i<n;i++){
+    gated[i]=raw[i]*smoothstep(0.03*Lp,0.15*Lp,ls[i]);
+    const a=Math.abs(gated[i]); dz[i]= a<0.08?0:Math.sign(gated[i])*(a-0.08)/0.92;
+  }
+  const sig= UI.mode==='beat'?Math.max(UI.smooth,0.3):UI.smooth;
+  let s=gauss(dz,sig*fr);
+  const abs=new Float32Array(n); for (let i=0;i<n;i++) abs[i]=Math.abs(s[i]);
+  const p=percentile(abs,0.95), sc=p>0.03?Math.min(2.5,0.85/p):1;
+  const maxRad=UI.maxDeg*Math.PI/180, kMax=0.04;
+  const maxStep=(kMax*CFG.speed/maxRad)/fr;
+  for (let i=0;i<n;i++){ const t=i/fr+F.off; s[i]=clamp(s[i]*sc,-1,1)*smoothstep(0.5,3.5,t); }
+  s=slew(s,maxStep); s=gauss(s,2);
+  return { f:s, raw:gated };
+}
+function sampleArr(a,t){
+  const u=(t-CM.off)*CM.fr; if (u<=0) return a[0]; if (u>=a.length-1) return a[a.length-1];
+  const i=u|0, k=u-i; return a[i]+(a[i+1]-a[i])*k;
+}
+
+/* ------------------------------------------------------------------ */
+/*  TRACK LOGIC                                                       */
+/* ------------------------------------------------------------------ */
+let TRACK=null;
+const RA={x:0,z:0,th:0,k:0}, RB={x:0,z:0,th:0,k:0}, RF={x:0,z:0,th:0,k:0};
+function buildTrackData(f,dur){
+  const v=CFG.speed, ds=CFG.ds, maxRad=UI.maxDeg*Math.PI/180;
+  const s0=-CFG.padBack, s1=v*dur+CFG.padFwd, n=Math.ceil((s1-s0)/ds)+1;
+  const th=new Float32Array(n), cx=new Float32Array(n), cz=new Float32Array(n);
+  for (let j=0;j<n;j++){ const t=(s0+j*ds)/v; th[j]= (!f||t<=0)?0:maxRad*sampleArr(f,t); }
+  let x=0,z=0;
+  for (let j=0;j<n;j++){ cx[j]=x; cz[j]=z; x+=Math.sin(th[j])*ds; z-=Math.cos(th[j])*ds; }
+  const j0=Math.round(-s0/ds), ox=cx[j0], oz=cz[j0];
+  for (let j=0;j<n;j++){ cx[j]-=ox; cz[j]-=oz; }
+  TRACK={n,s0,th,cx,cz};
+}
+function roadAt(s,o){
+  let u=(s-TRACK.s0)/CFG.ds; u=clamp(u,0,TRACK.n-1.001);
+  const i=u|0, k=u-i;
+  o.x=lerp(TRACK.cx[i],TRACK.cx[i+1],k); o.z=lerp(TRACK.cz[i],TRACK.cz[i+1],k); o.th=lerp(TRACK.th[i],TRACK.th[i+1],k);
+  const i1=Math.max(0,i-2), i2=Math.min(TRACK.n-1,i+3);
+  o.k=(TRACK.th[i2]-TRACK.th[i1])/((i2-i1)*CFG.ds);
+  return o;
+}
+
+/* ------------------------------------------------------------------ */
+/*  THREE.JS + PS1 RENDERER                                            */
+/* ------------------------------------------------------------------ */
+let renderer, scene, camera, rt, postScene, postCam, postMat;
+let LW=427, LH=240;
+const SNAP={value:new THREE.Vector2(LW,LH)};
+let carGroup, carBody, glowMesh, backdrop, sunMesh, groundMesh, trackGroup=null, objGroup=null;
+const objects=[];
+let obsGeo, obsMat, ringGeo, ringMat;
+
+function ps1(mat){
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uSnap = SNAP;
+    sh.vertexShader = 'uniform vec2 uSnap;\n' + sh.vertexShader.replace('#include <project_vertex>',
+      '#include <project_vertex>\n if(gl_Position.w>0.0){ vec2 g=uSnap*0.5; gl_Position.xy=floor(gl_Position.xy/gl_Position.w*g+0.5)/g*gl_Position.w; }');
+  };
+  return mat;
+}
+function flat(geo){ const g=geo.index?geo.toNonIndexed():geo; g.computeVertexNormals(); return g; }
+function loft(secs){
+  const v=[];
+  const quad=(a,b,c,d)=>v.push(...a,...b,...c,...a,...c,...d);
+  const corner=s=>[[-s.wb/2,s.y0,s.z],[s.wb/2,s.y0,s.z],[s.wt/2,s.y1,s.z],[-s.wt/2,s.y1,s.z]];
+  for (let i=0;i<secs.length-1;i++){
+    const A=corner(secs[i]), B=corner(secs[i+1]);
+    for (let k=0;k<4;k++){ const k2=(k+1)%4; quad(A[k],A[k2],B[k2],B[k]); }
+  }
+  const f=corner(secs[0]), l=corner(secs[secs.length-1]);
+  quad(f[0],f[3],f[2],f[1]); quad(l[0],l[1],l[2],l[3]);
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(v,3)); g.computeVertexNormals(); return g;
+}
+
+function makeCar(){
+  const g=new THREE.Group(); carBody=new THREE.Group(); g.add(carBody);
+  const L=(c,e)=>ps1(new THREE.MeshLambertMaterial({color:c,emissive:e||0x000000,side:THREE.DoubleSide}));
+  const body=new THREE.Mesh(loft([
+    {z:-2.5,wb:0.5,wt:0.25,y0:0.28,y1:0.45},
+    {z:-1.2,wb:1.7,wt:1.3,y0:0.22,y1:0.66},
+    {z:0.8,wb:1.95,wt:1.5,y0:0.22,y1:0.72},
+    {z:2.1,wb:1.8,wt:1.2,y0:0.26,y1:0.82}]), L(0xd81b7a,0x2a0418));
+  const cabin=new THREE.Mesh(loft([
+    {z:-0.7,wb:1.0,wt:0.45,y0:0.66,y1:1.02},
+    {z:0.3,wb:1.45,wt:0.9,y0:0.70,y1:1.28},
+    {z:1.3,wb:1.5,wt:1.0,y0:0.74,y1:1.12}]), L(0x22d8ff,0x0a4a60));
+  carBody.add(body,cabin);
+  const wingMat=ps1(new THREE.MeshBasicMaterial({color:0x35f2ff}));
+  const wing=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.08,0.5),wingMat); wing.position.set(0,1.1,2.05);
+  const s1=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.3,0.1),wingMat); s1.position.set(-0.6,0.95,2.0);
+  const s2=s1.clone(); s2.position.x=0.6; carBody.add(wing,s1,s2);
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.1,0.06),ps1(new THREE.MeshBasicMaterial({color:0xff2d95})));
+  tail.position.set(0,0.6,2.12); carBody.add(tail);
+  const wGeo=flat(new THREE.CylinderGeometry(0.45,0.45,0.45,6)); wGeo.rotateZ(Math.PI/2);
+  const wMat=L(0x0d0a1a);
+  [[-1.02,-1.3],[1.02,-1.3],[-1.02,1.25],[1.02,1.25]].forEach(([x,z])=>{ const w=new THREE.Mesh(wGeo,wMat); w.position.set(x,0.45,z); carBody.add(w); });
+  const gg=new THREE.PlaneGeometry(2.1,4.8); gg.rotateX(-Math.PI/2);
+  glowMesh=new THREE.Mesh(gg,new THREE.MeshBasicMaterial({color:0x00f0ff,transparent:true,opacity:0.45,depthWrite:false}));
+  glowMesh.position.y=0.07; g.add(glowMesh);
+  return g;
+}
+
+function makeSkyTexture(){
+  const c=document.createElement('canvas'); c.width=4; c.height=128; const x=c.getContext('2d');
+  const gr=x.createLinearGradient(0,0,0,128);
+  gr.addColorStop(0,'#06010f'); gr.addColorStop(0.30,'#12053a'); gr.addColorStop(0.42,'#3a0f6e');
+  gr.addColorStop(0.47,'#c2297f'); gr.addColorStop(0.49,'#ff5aa0'); gr.addColorStop(0.5,'#4a1670'); gr.addColorStop(1,'#4a1670');
+  x.fillStyle=gr; x.fillRect(0,0,4,128);
+  const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return t;
+}
+function makeSunTexture(){
+  const S=256, c=document.createElement('canvas'); c.width=c.height=S; const x=c.getContext('2d');
+  const gr=x.createLinearGradient(0,0,0,S); gr.addColorStop(0,'#ffe45e'); gr.addColorStop(0.55,'#ff8a3d'); gr.addColorStop(1,'#ff2d95');
+  x.fillStyle=gr; x.beginPath(); x.arc(S/2,S/2,S/2-2,0,Math.PI*2); x.fill();
+  x.globalCompositeOperation='destination-out';
+  [[0.55,2],[0.64,3],[0.72,5],[0.80,7],[0.87,9],[0.93,12]].forEach(([p,h])=>x.fillRect(0,S*p,S,h));
+  const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; return t;
+}
+function makeGround(){
+  const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
+  x.fillStyle='#14082e'; x.fillRect(0,0,64,64); x.strokeStyle='#ff2d95'; x.lineWidth=2.5; x.strokeRect(0,0,64,64);
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(50,50);
+  t.magFilter=THREE.NearestFilter; t.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  const g=new THREE.PlaneGeometry(1000,1000); g.rotateX(-Math.PI/2);
+  const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:t})); m.position.y=-0.3; return m;
+}
+function makeBackdrop(){
+  const grp=new THREE.Group();
+  const sky=new THREE.Mesh(new THREE.SphereGeometry(1200,24,32),new THREE.MeshBasicMaterial({map:makeSkyTexture(),side:THREE.BackSide,fog:false,depthWrite:false}));
+  sky.renderOrder=-10; grp.add(sky);
+  sunMesh=new THREE.Mesh(new THREE.PlaneGeometry(150,150),new THREE.MeshBasicMaterial({map:makeSunTexture(),transparent:true,fog:false,depthWrite:false}));
+  sunMesh.position.set(0,75,-700); grp.add(sunMesh);
+  const rng=mulberry32(7), mMat=new THREE.MeshBasicMaterial({color:0x1c0a40,fog:false}), lMat=new THREE.LineBasicMaterial({color:0xff2d95,fog:false});
+  for (let i=0;i<56;i++){
+    const a=i/56*Math.PI*2+rng()*0.1, w=60+rng()*90, h=30+rng()*80;
+    const geo=new THREE.ConeGeometry(w,h,4); geo.translate(0,h/2,0);
+    const m=new THREE.Mesh(geo,mMat); m.position.set(Math.sin(a)*780,0,-Math.cos(a)*780); m.rotation.y=rng()*3;
+    const l=new THREE.LineSegments(new THREE.EdgesGeometry(geo),lMat); l.position.copy(m.position); l.rotation.copy(m.rotation);
+    grp.add(m,l);
+  }
+  return grp;
+}
+
+function initThree(){
+  renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
+  renderer.setPixelRatio(1);
+  $('canvas-container').appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  scene.fog=new THREE.Fog(HORIZON,70,430);
+  camera=new THREE.PerspectiveCamera(72,1,1,2600);
+  scene.add(new THREE.AmbientLight(0xffffff,0.62));
+  const d1=new THREE.DirectionalLight(0xffa0e0,0.85); d1.position.set(-6,10,8); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x40e0ff,0.45); d2.position.set(8,4,-6); scene.add(d2);
+
+  rt=new THREE.WebGLRenderTarget(LW,LH,{minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});
+  postMat=new THREE.ShaderMaterial({
+    uniforms:{tDiffuse:{value:rt.texture},uRes:{value:new THREE.Vector2(LW,LH)},uFlash:{value:0}},
+    vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }',
+    fragmentShader:`
+      varying vec2 vUv; uniform sampler2D tDiffuse; uniform vec2 uRes; uniform float uFlash;
+      float bayer2(vec2 a){ a=floor(a); return fract(a.x/2.0+a.y*a.y*0.75); }
+      float bayer4(vec2 a){ return bayer2(0.5*a)*0.25+bayer2(a); }
+      void main(){
+        vec2 px=floor(vUv*uRes);
+        vec3 c=clamp(texture2D(tDiffuse,(px+0.5)/uRes).rgb,0.0,1.0);
+        float L=31.0;
+        c=floor(c*L+bayer4(px))/L;
+        vec2 q=vUv-0.5; c*=1.0-dot(q,q)*0.8;
+        c+=uFlash*vec3(1.0,0.15,0.3);
+        gl_FragColor=vec4(c,1.0);
+      }`,
+    depthTest:false,depthWrite:false});
+  postScene=new THREE.Scene();
+  const quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2),postMat); quad.frustumCulled=false; postScene.add(quad);
+  postCam=new THREE.Camera();
+
+  groundMesh=makeGround(); scene.add(groundMesh);
+  backdrop=makeBackdrop(); scene.add(backdrop);
+  carGroup=makeCar(); scene.add(carGroup);
+
+  obsGeo=flat(new THREE.ConeGeometry(1.1,2.5,4)); obsGeo.translate(0,1.25,0);
+  obsMat=ps1(new THREE.MeshLambertMaterial({color:0xff2244,emissive:0x550010,side:THREE.DoubleSide}));
+  ringGeo=flat(new THREE.TorusGeometry(1.0,0.24,4,8));
+  ringMat=ps1(new THREE.MeshBasicMaterial({color:0x35f2ff}));
+
+  window.addEventListener('resize',onResize);
+}
+
+function onResize(){
+  const w=innerWidth,h=innerHeight;
+  renderer.setSize(w,h);
+  LH=UI.lines; LW=Math.max(64,Math.round(LH*w/h));
+  rt.setSize(LW,LH); postMat.uniforms.uRes.value.set(LW,LH); SNAP.value.set(LW,LH);
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+  const v=$('visualizer-canvas'); v.width=v.clientWidth||200; v.height=v.clientHeight||32;
+}
+
+function stripGeometry(latA,latB,yA,yB,colorFn){
+  const pos=[],col=[],idx=[]; let vi=0;
+  for (let q=0;q<TRACK.n-1;q++){
+    const c=colorFn(q); if (!c) continue;
+    for (let e=0;e<2;e++){
+      const j=q+e, cs=Math.cos(TRACK.th[j]), sn=Math.sin(TRACK.th[j]);
+      pos.push(TRACK.cx[j]+cs*latA,yA,TRACK.cz[j]+sn*latA, TRACK.cx[j]+cs*latB,yB,TRACK.cz[j]+sn*latB);
+      col.push(c[0],c[1],c[2],c[0],c[1],c[2]);
+    }
+    idx.push(vi,vi+1,vi+2, vi+1,vi+3,vi+2); vi+=4;
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  g.setIndex(idx); return g;
+}
+function disposeGroup(g){ g.traverse(o=>{ if (o.geometry) o.geometry.dispose(); }); scene.remove(g); }
+
+function buildTrackMeshes(){
+  if (trackGroup) disposeGroup(trackGroup);
+  trackGroup=new THREE.Group();
+  const W=CFG.halfW, n=TRACK.n;
+  const mk=po=>ps1(new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:po}));
+  const add=(geo,mat)=>{ const m=new THREE.Mesh(geo,mat); m.frustumCulled=false; trackGroup.add(m); };
+  const asphalt=q=>((q>>2)&1)?[0.12,0.07,0.24]:[0.10,0.06,0.20];
+  const rumble =q=>((q>>2)&1)?[1.0,0.12,0.55]:[0.0,0.9,1.0];
+  const dash   =q=>((q>>2)&1)?null:[0.9,0.9,1.0];
+  const wall   =q=>((q/6|0)&1)?[0.7,0.08,0.4]:[0.0,0.6,0.7];
+  add(stripGeometry(-W,W,0,0,asphalt),mk(-2));
+  add(stripGeometry(-W-1.2,-W,0,0,rumble),mk(-6));
+  add(stripGeometry(W,W+1.2,0,0,rumble),mk(-6));
+  add(stripGeometry(-0.15,0.15,0,0,dash),mk(-8));
+  add(stripGeometry(-W-1.2,-W-1.2,0,0.9,wall),mk(-1));
+  add(stripGeometry(W+1.2,W+1.2,0,0.9,wall),mk(-1));
+
+  const step=16, per=Math.ceil(n/step), cnt=per*2;
+  const pGeo=flat(new THREE.CylinderGeometry(0.2,0.6,5,4)); pGeo.translate(0,2.5,0);
+  const cGeo=flat(new THREE.ConeGeometry(0.55,1.0,4)); cGeo.translate(0,5.5,0);
+  const pil=new THREE.InstancedMesh(pGeo,ps1(new THREE.MeshLambertMaterial({color:0x3a1a7a})),cnt);
+  const capA=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:0xff2d95})),cnt);
+  const capB=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:0x35f2ff})),cnt);
+  const dm=new THREE.Object3D(), rng=mulberry32(11); let ii=0;
+  for (let p=0;p<per;p++){
+    const j=Math.min(n-1,p*step);
+    for (let side=-1;side<=1;side+=2){
+      const lat=side*(W+4.6), cs=Math.cos(TRACK.th[j]), sn=Math.sin(TRACK.th[j]);
+      dm.position.set(TRACK.cx[j]+cs*lat,-0.3,TRACK.cz[j]+sn*lat); dm.rotation.set(0,-TRACK.th[j],0);
+      dm.scale.set(1,0.8+rng()*0.7,1); dm.updateMatrix(); pil.setMatrixAt(ii,dm.matrix);
+      const useA=(p+(side>0?1:0))%2===0;
+      capA.setMatrixAt(ii, useA?dm.matrix:new THREE.Matrix4().makeScale(0,0,0));
+      capB.setMatrixAt(ii, useA?new THREE.Matrix4().makeScale(0,0,0):dm.matrix);
+      ii++;
+    }
+  }
+  [pil,capA,capB].forEach(m=>{ m.frustumCulled=false; m.instanceMatrix.needsUpdate=true; trackGroup.add(m); });
+  scene.add(trackGroup);
+}
+
+function buildObjects(){
+  if (objGroup) scene.remove(objGroup);
+  objGroup=new THREE.Group(); objects.length=0;
+  const F=FEAT, rng=mulberry32(1234);
+  let pk=pickPeaks(gauss(F.fluxB,1),F.fr,1.1,1.6,0.2);
+  if (pk.length < F.duration/6) pk=pickPeaks(gauss(F.fluxA,1),F.fr,1.6,1.4,0.2);
+  let lastObs=false;
+  for (const e of pk){
+    const t=e/F.fr+F.off; if (t<4||t>F.duration-1.5) continue;
+    const obstacle=!lastObs && rng()<0.3; lastObs=obstacle;
+    const lane=(Math.floor(rng()*3)-1)*4.5;
+    const s=CFG.speed*t; roadAt(s,RB);
+    const rx=Math.cos(RB.th), rz=Math.sin(RB.th);
+    const mesh=new THREE.Mesh(obstacle?obsGeo:ringGeo, obstacle?obsMat:ringMat);
+    mesh.position.set(RB.x+rx*lane, obstacle?0:1.4, RB.z+rz*lane);
+    mesh.rotation.y=-RB.th; mesh.visible=false; mesh.frustumCulled=false;
+    objGroup.add(mesh);
+    objects.push({mesh,s,d:lane,type:obstacle?'obs':'ring',done:false});
+  }
+  scene.add(objGroup);
+}
+
+/* ------------------------------------------------------------------ */
+/*  GAME STATE & INPUT (Gyros & Tilt Included)                        */
+/* ------------------------------------------------------------------ */
+const G={running:false,paused:false,over:false,t:0,startAt:0,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0};
+const P={d:0,vd:0,steer:0};
+const keys={left:false,right:false}; 
+let touchSteer=0, tiltSteer=0;
+let dbgOn=false;
+
+/* --- HỖ TRỢ BẺ LÁI BẰNG NGHIÊNG THIẾT BỊ (GYRO) --- */
+function handleOrientation(e) {
+  if (!UI.useTilt || !G.running || G.paused) return;
+  
+  // gamma: góc nghiêng trái/phải (-90 đến 90)
+  let gamma = e.gamma; 
+  if (gamma === null || gamma === undefined) return;
+
+  // Đổi hướng nếu thiết bị ở màn hình ngang (Landscape)
+  if (window.orientation === 90) {
+    gamma = -e.beta;
+  } else if (window.orientation === -90) {
+    gamma = e.beta;
+  }
+
+  // Chuẩn hóa góc nghiêng [-1, 1]
+  const clampedGamma = clamp(gamma, -UI.tiltMaxDeg, UI.tiltMaxDeg);
+  tiltSteer = clampedGamma / UI.tiltMaxDeg;
+}
+
+// Cấp quyền cảm biến nghiêng cho Safari trên iOS 13+
+async function requestTiltPermission() {
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const response = await DeviceOrientationEvent.requestPermission();
+      if (response === 'granted') {
+        window.addEventListener('deviceorientation', handleOrientation, true);
+      } else {
+        UI.useTilt = false;
+        $('chk-tilt').checked = false;
+      }
+    } catch (e) {
+      console.warn('Không thể cấp quyền DeviceOrientation:', e);
+    }
+  } else {
+    // Android hoặc trình duyệt cũ
+    window.addEventListener('deviceorientation', handleOrientation, true);
+  }
+}
+
+function hurt(pen){ G.score=Math.max(0,G.score-pen); G.combo=0; G.mult=1; G.flash=0.55; G.shake=0.9; }
+function popText(txt){ const el=$('pop'); el.textContent=txt; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+
+function update(dt){
+  const lat=audioCtx.outputLatency||audioCtx.baseLatency||0;
+  G.t=audioCtx.currentTime-G.startAt-lat;
+  const v=CFG.speed, sp=v*G.t;
+  roadAt(sp,RA);
+
+  // Tổng hợp tín hiệu lái (Phím / Cảm ứng / Nghiêng)
+  let keyDir = (keys.right?1:0) - (keys.left?1:0);
+  let activeSteer = keyDir !== 0 ? keyDir : (touchSteer !== 0 ? touchSteer : (UI.useTilt ? tiltSteer : 0));
+
+  const target=clamp(activeSteer, -1, 1);
+  P.steer+=(target-P.steer)*Math.min(1,dt*12);
+  P.vd+=(P.steer*STEER_ACC - RA.k*v*v*DRIFT_K*UI.drift)*dt;
+  P.vd*=Math.exp(-1.7*dt);
+  P.d+=P.vd*dt;
+  G.wallCd=Math.max(0,G.wallCd-dt);
+  const lim=CFG.halfW-0.6;
+  if (Math.abs(P.d)>lim){
+    const sg=Math.sign(P.d); P.d=sg*lim;
+    if (P.vd*sg>0){ P.vd=-P.vd*0.3; if (G.wallCd<=0){ hurt(60); G.wallCd=0.5; } }
+  }
+  if (G.t>0) G.score+=dt*15;
+
+  for (const o of objects){
+    const ds=o.s-sp;
+    o.mesh.visible = !o.done && ds>-12 && ds<420;
+    if (!o.mesh.visible) continue;
+    if (o.type==='ring') o.mesh.rotation.z+=dt*3;
+    if (Math.abs(ds)<1.8){
+      const dd=Math.abs(o.d-P.d);
+      if (o.type==='ring' && dd<2.0){
+        o.done=true; o.mesh.visible=false; G.combo++; G.mult=Math.min(8,1+Math.floor(G.combo/4));
+        G.score+=100*G.mult; popText('+'+(100*G.mult));
+      } else if (o.type==='obs' && dd<1.5){
+        o.done=true; o.mesh.visible=false; hurt(150); popText('CRASH');
+      }
+    }
+  }
+  if (G.t>FEAT.duration+0.3){ endGame(); return; }
+  placeActors(sp,P.d,P.vd,P.steer,RA.k,dt);
+  updateHUD();
+}
+
+function placeActors(sp,d,vd,steer,kappa,dt){
+  const v=CFG.speed;
+  roadAt(sp,RA);
+  const rx=Math.cos(RA.th), rz=Math.sin(RA.th);
+  carGroup.position.set(RA.x+rx*d,0,RA.z+rz*d);
+  carGroup.rotation.y=-(RA.th+Math.atan2(vd,v));
+  carBody.rotation.z=clamp(kappa*v*0.12,-0.2,0.2)+steer*0.04;
+  carBody.position.y=G.bass*0.06;
+  glowMesh.material.opacity=0.35+G.bass*0.5;
+
+  roadAt(sp-10,RB); roadAt(sp+16,RF);
+  const bx=Math.cos(RB.th), bz=Math.sin(RB.th), fx=Math.cos(RF.th), fz=Math.sin(RF.th);
+  const sh=G.shake*0.35;
+  camera.position.set(RB.x+bx*d*0.65+(Math.random()-0.5)*sh, 4.2+(Math.random()-0.5)*sh, RB.z+bz*d*0.65);
+  const roll=clamp(kappa*v*0.10,-0.12,0.12);
+  camera.up.set(bx*roll,1,bz*roll);
+  camera.lookAt(RF.x+fx*d*0.4,1.2,RF.z+fz*d*0.4);
+  camera.fov=72+G.bass*4; camera.updateProjectionMatrix();
+  G.shake=Math.max(0,G.shake-dt*2.5);
+
+  backdrop.position.set(carGroup.position.x,0,carGroup.position.z);
+  sunMesh.scale.setScalar(1+G.bass*0.05);
+  groundMesh.position.x=Math.round(carGroup.position.x/20)*20;
+  groundMesh.position.z=Math.round(carGroup.position.z/20)*20;
+}
+
+function idleScene(time){
+  G.bass*=0.95;
+  const sp=(time*18)%300; P.d=0; P.vd=0; P.steer=0;
+  for (const o of objects) o.mesh.visible=false;
+  placeActors(sp,0,0,0,0,0.016);
+}
+
+let lastHUD='';
+function updateHUD(){
+  const s=Math.floor(G.score).toString().padStart(6,'0')+'|'+G.combo+'|'+G.mult;
+  if (s===lastHUD) return; lastHUD=s;
+  $('score-text').textContent=Math.floor(G.score).toString().padStart(6,'0');
+  $('combo-text').textContent=G.combo; $('multiplier-text').textContent=G.mult;
+}
+
+function readAudioViz(){
+  const c=$('visualizer-canvas'), x=c.getContext('2d');
+  x.clearRect(0,0,c.width,c.height);
+  if (!analyser||!G.running||G.paused) return;
+  analyser.getByteFrequencyData(freqData);
+  const raw=(freqData[0]+freqData[1]+freqData[2])/(3*255);
+  G.bass=Math.max(raw,G.bass*0.9);
+  const bars=32, bw=c.width/bars;
+  for (let i=0;i<bars;i++){
+    let a=0; for (let j=0;j<3;j++) a+=freqData[i*3+j]; a/=3*255;
+    x.fillStyle=i<8?'#ff007f':'#00f0ff'; const h=a*c.height; x.fillRect(i*bw,c.height-h,bw-1,h);
+  }
+}
+
+function drawDebug(){
+  if (!dbgOn||!CURVE) return;
+  const c=$('debug-canvas'), x=c.getContext('2d'), w=c.width, h=c.height;
+  x.clearRect(0,0,w,h); x.fillStyle='rgba(0,0,0,0.5)'; x.fillRect(0,0,w,h);
+  x.strokeStyle='rgba(255,255,255,0.2)'; x.beginPath(); x.moveTo(0,h/2); x.lineTo(w,h/2); x.stroke();
+  const t0=G.t-2, t1=G.t+8, nowX=w*0.2;
+  const line=(arr,col)=>{ x.strokeStyle=col; x.beginPath();
+    for (let px=0;px<w;px++){ const t=t0+(t1-t0)*px/w, y=h/2-sampleArr(arr,t)*(h/2-6); px?x.lineTo(px,y):x.moveTo(px,y); } x.stroke(); };
+  line(CURVE.raw,'#888'); line(CURVE.f,'#00f0ff');
+  x.strokeStyle='#ff007f'; x.beginPath(); x.moveTo(nowX,0); x.lineTo(nowX,h); x.stroke();
+}
+
+/* ------------------------------------------------------------------ */
+/*  FLOW MANAGEMENT                                                   */
+/* ------------------------------------------------------------------ */
+function showLoading(txt,p){ const l=$('loading'); l.classList.remove('hidden'); l.classList.add('flex'); $('load-text').textContent=txt; $('load-bar').style.width=Math.round(p*100)+'%'; }
+function hideLoading(){ const l=$('loading'); l.classList.add('hidden'); l.classList.remove('flex'); }
+function enableStart(name){
+  $('file-name-display').textContent=name;
+  const b=$('start-btn'); b.disabled=false; b.classList.remove('opacity-50','cursor-not-allowed');
+}
+async function prepareBuffer(buf,name){
+  try{
+    showLoading('Đang phân tích nhạc...',0);
+    FEAT=await analyzeBuffer(buf,p=>showLoading('Đang phân tích nhạc...',p));
+    CM={off:FEAT.off,fr:FEAT.fr};
+    songBuffer=buf; enableStart(name+' ('+Math.round(buf.duration)+'s)');
+  }catch(err){ alert('Không phân tích được bài này: '+err.message); }
+  hideLoading();
+}
+$('audio-file-input').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if (!file) return;
+  try{
+    showLoading('Đang giải mã...',0.05);
+    const ab=await file.arrayBuffer(); const buf=await ensureCtx().decodeAudioData(ab);
+    await prepareBuffer(buf,file.name);
+  }catch(err){ hideLoading(); alert('Không đọc được file âm thanh.'); }
+});
+$('demo-btn').addEventListener('click',async()=>{
+  showLoading('Đang tạo nhạc demo...',0.05);
+  try{ const buf=await makeDemoBuffer(); await prepareBuffer(buf,'Demo Synthwave'); }
+  catch(err){ hideLoading(); alert('Không tạo được demo: '+err.message); }
+});
+
+$('mode-sel').addEventListener('change',e=>UI.mode=e.target.value);
+$('sl-smooth').addEventListener('input',e=>{ UI.smooth=+e.target.value; $('v-smooth').textContent=UI.smooth.toFixed(2)+'s'; });
+$('sl-curve').addEventListener('input',e=>{ UI.maxDeg=+e.target.value; $('v-curve').textContent=UI.maxDeg+'°'; });
+$('sl-drift').addEventListener('input',e=>{ UI.drift=+e.target.value; $('v-drift').textContent=UI.drift.toFixed(1)+'x'; });
+$('res-sel').addEventListener('change',e=>{ UI.lines=+e.target.value; onResize(); });
+$('chk-tilt').addEventListener('change', e => { UI.useTilt = e.target.checked; if(UI.useTilt) requestTiltPermission(); });
+$('sl-tiltsens').addEventListener('input', e => { UI.tiltMaxDeg = +e.target.value; $('v-tiltsens').textContent = UI.tiltMaxDeg + '°'; });
+
+function stopSource(){ if (srcNode){ try{ srcNode.stop(); }catch(_){} try{ srcNode.disconnect(); }catch(_){} srcNode=null; } }
+
+async function startGame(){
+  if (!songBuffer) return;
+  ensureCtx(); await audioCtx.resume();
+  
+  // Yêu cầu quyền nghiêng thiết bị nếu đang bật
+  if (UI.useTilt) await requestTiltPermission();
+
+  stopSource();
+  showLoading('Đang dựng đường đua...',0.5); await tick();
+  CURVE=buildCurve(FEAT);
+  buildTrackData(CURVE.f,FEAT.duration);
+  buildTrackMeshes(); buildObjects();
+  hideLoading();
+  Object.assign(P,{d:0,vd:0,steer:0});
+  Object.assign(G,{running:true,paused:false,over:false,t:-1.2,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0});
+  lastHUD=''; updateHUD();
+  srcNode=audioCtx.createBufferSource(); srcNode.buffer=songBuffer; srcNode.connect(analyser);
+  G.startAt=audioCtx.currentTime+1.2; srcNode.start(G.startAt);
+  $('upload-modal').classList.add('hidden');
+  $('gameover-modal').classList.add('hidden'); $('gameover-modal').classList.remove('flex');
+  
+  // Hiển thị nút trên màn hình cảm ứng nếu không nghiêng hoặc trên thiết bị di động
+  if ('ontouchstart' in window||navigator.maxTouchPoints>0) {
+    $('touch-controls').classList.remove('hidden');
+  }
+}
+
+function endGame(){
+  G.running=false; G.over=true; stopSource();
+  $('final-score').textContent=Math.floor(G.score).toString().padStart(6,'0');
+  const m=$('gameover-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+}
+
+function togglePause(){
+  if (!G.running) return;
+  G.paused=!G.paused;
+  const o=$('pause-overlay');
+  if (G.paused){ audioCtx.suspend(); o.classList.remove('hidden'); o.classList.add('flex'); }
+  else { audioCtx.resume(); o.classList.add('hidden'); o.classList.remove('flex'); lastNow=performance.now(); }
+}
+
+$('start-btn').addEventListener('click',startGame);
+$('again-btn').addEventListener('click',startGame);
+$('other-btn').addEventListener('click',()=>{ const m=$('gameover-modal'); m.classList.add('hidden'); m.classList.remove('flex'); $('upload-modal').classList.remove('hidden'); });
+$('pause-overlay').addEventListener('click', togglePause);
+
+/* ---- input bàn phím & cảm ứng nút bấm ---- */
+window.addEventListener('keydown',e=>{
+  const k=e.key;
+  if (k==='ArrowLeft'||k==='a'||k==='A'){ keys.left=true; e.preventDefault(); }
+  else if (k==='ArrowRight'||k==='d'||k==='D'){ keys.right=true; e.preventDefault(); }
+  else if (k==='p'||k==='P'||k==='Escape') togglePause();
+  else if (k==='g'||k==='G'){ dbgOn=!dbgOn; $('debug-canvas').classList.toggle('hidden',!dbgOn); }
+});
+window.addEventListener('keyup',e=>{
+  const k=e.key;
+  if (k==='ArrowLeft'||k==='a'||k==='A') keys.left=false;
+  else if (k==='ArrowRight'||k==='d'||k==='D') keys.right=false;
+});
+
+function holdBtn(id,val){
+  const b=$(id);
+  b.addEventListener('pointerdown',e=>{ e.preventDefault(); touchSteer=val; });
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>{ if (touchSteer===val) touchSteer=0; }));
+}
+holdBtn('btn-left',-1); holdBtn('btn-right',1);
+document.addEventListener('visibilitychange',()=>{ if (document.hidden && G.running && !G.paused) togglePause(); });
+
+/* ------------------------------------------------------------------ */
+/*  MAIN LOOP                                                          */
+/* ------------------------------------------------------------------ */
+let lastNow=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.05,(now-lastNow)/1000); lastNow=now;
+  readAudioViz();
+  if (G.running){ if (!G.paused) update(dt); }
+  else idleScene(now/1000);
+  G.flash=Math.max(0,G.flash-dt*2.5); postMat.uniforms.uFlash.value=G.flash*0.5;
+  drawDebug();
+  renderer.setRenderTarget(rt); renderer.render(scene,camera);
+  renderer.setRenderTarget(null); renderer.render(postScene,postCam);
+}
+
+initThree();
+buildTrackData(null,60);
+buildTrackMeshes();
+onResize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
