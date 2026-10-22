@@ -1,224 +1,150 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>PMSC v2</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<title>Synth Drive</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  html, body { 
-    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; 
-    background: #07020f; font-family: 'Segoe UI', Roboto, sans-serif; 
-    user-select: none; -webkit-user-select: none; 
-  }
-
-  /* Khung chứa Game chính */
-  #game-viewport {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    overflow: hidden;
-    transform-origin: center center;
-  }
-
-  /* Ép xoay ngang giao diện bằng CSS khi máy ở màn hình dọc */
-  @media (orientation: portrait) {
-    #game-viewport {
-      width: 100vh !important;
-      height: 100vw !important;
-      top: 50% !important;
-      left: 50% !important;
-      transform: translate(-50%, -50%) rotate(90deg) !important;
-    }
-  }
-
-  #canvas-container { position: absolute; inset: 0; z-index: 1; }
-  #canvas-container canvas { display: block; width: 100% !important; height: 100% !important; }
-
-  .cyber-panel { 
-    background: rgba(15, 10, 30, .88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 0, 128, .3); box-shadow: 0 0 18px rgba(255, 0, 128, .18), inset 0 0 14px rgba(0, 240, 255, .08); 
-  }
-  .cyber-button { 
-    background: linear-gradient(135deg, #ff007f 0%, #7928ca 100%); transition: all .2s ease; 
-    box-shadow: 0 0 14px rgba(255, 0, 127, .5); 
-  }
-  .cyber-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 24px rgba(255, 0, 127, .8); }
-  .neon-pink { text-shadow: 0 0 8px rgba(255, 0, 128, .8), 0 0 20px rgba(255, 0, 128, .5); }
-  .neon-cyan { text-shadow: 0 0 8px rgba(0, 240, 255, .8), 0 0 20px rgba(0, 240, 255, .5); }
-
-  #pop { 
-    position: absolute; left: 50%; top: 38%; transform: translateX(-50%); z-index: 15; 
-    font-weight: 900; font-size: 28px; color: #35f2ff; text-shadow: 0 0 10px #00f0ff; 
-    opacity: 0; pointer-events: none; 
-  }
-  #pop.show { animation: pop .7s ease-out; }
-  @keyframes pop { 0%{opacity:1;transform:translate(-50%,0) scale(.8)} 100%{opacity:0;transform:translate(-50%,-40px) scale(1.15)} }
-
-  select, input[type=range] { width: 100%; }
-  select { background: #120a2a; border: 1px solid rgba(0, 240, 255, .35); border-radius: 6px; padding: 4px 6px; color: #e5e7eb; font-size: 12px; }
-
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
-  ::-webkit-scrollbar-thumb { background: rgba(255,0,128,0.5); border-radius: 3px; }
+:root{--a:#ff4aa0;--b:#a8115e;--a-line:color-mix(in srgb,var(--a) 35%,transparent);--a-glow:color-mix(in srgb,var(--a) 50%,transparent);--a-soft:color-mix(in srgb,var(--a) 14%,transparent);--mut:rgba(244,234,255,.5);--ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.45,.5,1);--disp:'Orbitron','Eurostile','Bank Gothic',sans-serif;--body:'Rajdhani','Segoe UI',sans-serif;--mono:'Share Tech Mono',ui-monospace,monospace}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100vw;height:100vh;overflow:hidden;background:#07020f;color:#f4eaff;font:500 15px var(--body);user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+#game-viewport{position:absolute;top:0;left:0;width:100vw;height:100vh;overflow:hidden;transform-origin:center}
+@media (orientation:portrait){#game-viewport{width:100vh!important;height:100vw!important;top:50%!important;left:50%!important;transform:translate(-50%,-50%) rotate(90deg)!important}}
+#canvas-container{position:absolute;inset:0;z-index:1}
+#canvas-container canvas{display:block;width:100%!important;height:100%!important}
+.layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .45s var(--ease),visibility 0s linear .45s}
+.layer.on{opacity:1;visibility:visible;transition:opacity .45s var(--ease),visibility 0s}
+#zones{position:absolute;inset:0;z-index:10;display:none;touch-action:none}#zones.on{display:block}
+#zl,#zr{position:absolute;top:0;width:50%;height:100%}#zl{left:0}#zr{right:0}
+/* HUD */
+#hud{position:absolute;inset:0;z-index:20;pointer-events:none;padding:18px 22px;display:flex;flex-direction:column;justify-content:space-between}
+.row{display:flex;justify-content:space-between;align-items:flex-start}
+#top-right{display:flex;gap:12px;align-items:center;pointer-events:auto}
+#curve-graph-container,#open-settings-btn{border:1px solid var(--a-line);background:rgba(8,3,18,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#curve-graph-container{padding:6px;opacity:0;transform:translateY(-8px);transition:.5s var(--ease)}
+#curve-graph-container.on{opacity:1;transform:none}
+#debug-canvas{display:block}
+#open-settings-btn{width:42px;height:42px;display:grid;place-items:center;color:var(--a);transition:.35s var(--ease)}
+#open-settings-btn:hover{color:#fff;background:var(--a-soft);box-shadow:0 0 20px var(--a-glow)}
+#open-settings-btn:active{transform:scale(.92)}
+.ln{transform-box:fill-box;transform-origin:right;transition:transform .45s var(--spring)}
+#open-settings-btn:hover .ln.s{transform:scaleX(1.6)}
+#score-display{text-align:right;opacity:0;transform:translateY(14px);transition:.6s var(--ease)}
+#score-display.on{opacity:1;transform:none}
+.l{display:flex;justify-content:space-between;align-items:baseline;font:600 10px var(--disp);letter-spacing:.34em;color:var(--mut)}
+.l b{font:400 12px var(--mono);letter-spacing:.08em;color:var(--a)}
+#score-label{font:700 10px var(--disp);letter-spacing:.5em;margin-right:-.5em;color:var(--a);opacity:.7}
+#score-text,#final-score{font:900 clamp(30px,6.5vw,54px)/1.1 var(--disp);letter-spacing:.06em;font-feature-settings:'tnum';color:#fff;text-shadow:0 0 10px var(--a),0 0 32px var(--a-glow)}
+#score-text i,#final-score i{font-style:normal;color:var(--a);opacity:.28;text-shadow:none}
+#score-text.bump{animation:bump .4s var(--ease)}
+#pop{position:absolute;left:50%;top:38%;transform:translateX(-50%);z-index:15;font:900 26px var(--disp);letter-spacing:.2em;color:#fff;text-shadow:0 0 10px var(--a),0 0 28px var(--a);opacity:0;pointer-events:none}
+#pop.show{animation:pop .7s ease-out}
+/* Start */
+#start-overlay{z-index:15;flex-direction:column;gap:20px;cursor:pointer;background:radial-gradient(ellipse at center,transparent 25%,rgba(5,0,12,.7))}
+#start-overlay h1{margin:0 -.14em 0 0;font:900 clamp(38px,9vw,92px)/1 var(--disp);letter-spacing:.14em;color:#fff;text-shadow:0 0 6px var(--a),0 0 26px var(--a),0 0 64px var(--a-glow);animation:titleIn 1.4s var(--ease) both,flick 7s 2s infinite;pointer-events:none}
+.rule{width:min(320px,50%);height:1px;background:linear-gradient(90deg,transparent,var(--a),transparent);box-shadow:0 0 12px var(--a);animation:ruleIn 1.2s .3s var(--ease) both}
+#start-prompt-text{margin:0;font:700 clamp(11px,1.6vw,14px) var(--disp);letter-spacing:.45em;margin-right:-.45em;color:var(--a);pointer-events:none}
+#start-prompt-text.swap{animation:swap .6s var(--ease) both,breathe 2.6s .6s ease-in-out infinite}
+/* Panels */
+.panel{position:relative;width:min(760px,100%);max-height:94%;display:flex;flex-direction:column;padding:20px 24px 18px;background:linear-gradient(180deg,rgba(20,9,40,.93),rgba(9,3,20,.95));border:1px solid var(--a-line);box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 44px color-mix(in srgb,var(--a) 14%,transparent);transform:translateY(26px) scale(.97);opacity:0;transition:transform .6s var(--ease),opacity .4s}
+.layer.on .panel{transform:none;opacity:1}
+.panel::before,.panel::after{content:'';position:absolute;width:12px;height:12px;border:2px solid var(--a);transition:.6s var(--ease)}
+.panel::before{top:-2px;left:-2px;border-right:0;border-bottom:0}.panel::after{bottom:-2px;right:-2px;border-left:0;border-top:0}
+.layer:not(.on) .panel::before{transform:translate(8px,8px)}.layer:not(.on) .panel::after{transform:translate(-8px,-8px)}
+.panel.sm{width:min(340px,100%);align-items:center;gap:16px;padding:30px}
+#settings-modal{z-index:32;padding:14px;background:rgba(4,0,10,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#pause-overlay,#gameover-modal{z-index:30;background:rgba(4,0,10,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+header{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--a-line)}
+h2{margin:0;font:700 13px var(--disp);letter-spacing:.4em;color:#fff}
+h2.big{font-weight:900;font-size:22px;margin-right:-.3em;letter-spacing:.3em;text-shadow:0 0 14px var(--a)}
+#close-settings-btn{width:30px;height:30px;display:grid;place-items:center;color:var(--mut);transition:.5s var(--spring)}
+#close-settings-btn:hover{color:#fff;transform:rotate(90deg)}
+.body{display:grid;grid-template-columns:1fr 1fr;column-gap:30px;overflow-y:auto;margin:0 -6px;padding:0 6px}
+@media (max-width:720px){.body{grid-template-columns:1fr}}
+.r{display:flex;flex-direction:column;gap:9px;padding:11px 0}
+.layer.on .r{animation:rowIn .6s calc(var(--i)*60ms + 140ms) var(--ease) both}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mono{font:400 11px var(--mono);color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.06em}
+.theme{display:flex;align-items:center;gap:10px}.theme .btn{flex:1}
+#sun-thumb{width:34px;height:34px;border-radius:50%;flex:none;background:linear-gradient(#ffe45e,var(--a) 62%,var(--b)) center/cover;border:1px solid var(--a-line);box-shadow:0 0 14px var(--a-soft);transition:.5s var(--spring)}
+#sun-thumb:hover{transform:scale(1.15) rotate(20deg)}
+.sw{width:14px;height:34px;flex:none;border:1px solid rgba(255,255,255,.2);background:var(--a)}#sw-b{background:var(--b)}
+.lnk{font:600 10px var(--disp);letter-spacing:.2em;color:var(--mut);transition:.3s}.lnk:hover{color:var(--a)}
+/* Segmented switch */
+.seg{position:relative;display:flex;padding:3px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09)}
+.seg button{position:relative;z-index:1;flex:1;padding:9px 4px 9px calc(4px + .2em);font:600 11px var(--disp);letter-spacing:.2em;color:var(--mut);transition:color .3s,text-shadow .3s}
+.seg button:hover{color:#fff}.seg button.sel{color:#fff;text-shadow:0 0 10px var(--a)}
+.seg button:active{transform:scale(.96)}
+.thumb{position:absolute;top:3px;bottom:3px;left:0;width:0;background:linear-gradient(135deg,color-mix(in srgb,var(--a) 55%,transparent),color-mix(in srgb,var(--b) 75%,transparent));box-shadow:0 0 18px var(--a-glow),inset 0 0 0 1px var(--a);transition:transform .55s var(--spring),width .55s var(--spring)}
+/* Range */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;margin:0;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:linear-gradient(90deg,var(--a) var(--p,50%),rgba(255,255,255,.14) var(--p,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-5px;background:#fff;transform:rotate(45deg);box-shadow:0 0 12px var(--a);transition:transform .3s var(--spring)}
+input[type=range]:active::-webkit-slider-thumb{transform:rotate(45deg) scale(1.5)}
+input[type=range]::-moz-range-track{height:2px;background:rgba(255,255,255,.14)}input[type=range]::-moz-range-progress{height:2px;background:var(--a)}
+input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radius:0;background:#fff;transform:rotate(45deg);box-shadow:0 0 12px var(--a)}
+/* Buttons */
+.btn{position:relative;overflow:hidden;display:block;text-align:center;font:700 11px var(--disp);letter-spacing:.3em;padding:12px 14px 12px calc(14px + .3em);color:#fff;border:1px solid var(--a);background:var(--a-soft);cursor:pointer;transition:.4s var(--ease)}
+.btn::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.3) 50%,transparent 70%);transform:translateX(-130%);transition:transform .8s var(--ease)}
+.btn:hover::after{transform:translateX(130%)}
+.btn:hover{background:color-mix(in srgb,var(--a) 30%,transparent);box-shadow:0 0 24px var(--a-glow);letter-spacing:.38em}
+.btn:active{transform:scale(.97)}
+.btn.main{width:100%;background:linear-gradient(135deg,var(--a),var(--b));border-color:transparent;text-shadow:0 0 10px rgba(0,0,0,.4)}
+.btn.ghost{width:100%;border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.03);color:#e8dcff}
+.btn.ghost:hover{border-color:var(--a);color:#fff}
+footer{padding-top:12px;border-top:1px solid var(--a-line)}
+/* Loading */
+#loading{z-index:40;flex-direction:column;gap:14px;background:rgba(4,0,10,.88)}
+#load-text{font:700 12px var(--disp);letter-spacing:.45em;margin-right:-.45em;color:var(--a);animation:breathe 1.6s ease-in-out infinite}
+#load-track{width:min(280px,70%);height:2px;background:rgba(255,255,255,.12)}
+#load-bar{height:100%;width:0;background:linear-gradient(90deg,var(--b),var(--a));box-shadow:0 0 12px var(--a);transition:width .25s}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--a-line)}
+@keyframes pop{0%{opacity:1;transform:translate(-50%,0) scale(.8)}100%{opacity:0;transform:translate(-50%,-40px) scale(1.15)}}
+@keyframes bump{0%{transform:scale(1.14);filter:brightness(1.7)}100%{transform:none}}
+@keyframes titleIn{from{opacity:0;letter-spacing:.7em;filter:blur(14px)}}
+@keyframes flick{0%,92%,100%{opacity:1}93%{opacity:.5}94%{opacity:1}96%{opacity:.7}97%{opacity:1}}
+@keyframes ruleIn{from{transform:scaleX(0)}}
+@keyframes breathe{50%{opacity:.4}}
+@keyframes swap{from{opacity:0;transform:translateY(6px);filter:blur(5px)}}
+@keyframes rowIn{from{opacity:0;transform:translateX(-16px)}}
+body.phone{background:radial-gradient(ellipse at center,#120a24,#050109)}
+body.phone #game-viewport{width:min(94vw,calc(94vh*2.1667))!important;height:min(94vh,calc(94vw/2.1667))!important;top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important;border-radius:26px;box-shadow:0 0 0 7px #000,0 0 0 8px var(--a-line),0 0 90px var(--a-soft)}
 </style>
 </head>
-<body class="text-white">
-
+<body>
 <div id="game-viewport">
-  <div id="canvas-container"></div>
-  <div id="pop"></div>
-
-  <!-- HUD -->
-  <div id="hud" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4">
-    <!-- Top Bar -->
-    <div class="flex justify-between items-start w-full">
-      <div></div>
-      <div class="flex items-center gap-3 pointer-events-auto">
-        <div id="curve-graph-container" class="cyber-panel p-1.5 rounded-lg border border-pink-500/40 bg-black/60 hidden">
-          <canvas id="debug-canvas" width="180" height="45" class="rounded"></canvas>
-        </div>
-        <button id="open-settings-btn" class="cyber-panel w-10 h-10 rounded-full flex items-center justify-center text-cyan-300 hover:text-pink-400 hover:scale-110 transition-all border border-cyan-400/40 shadow-lg">
-          <i class="fa-solid fa-gear text-lg"></i>
-        </button>
-      </div>
-    </div>
-
-    <!-- Bottom Bar: Điểm số duy nhất ở góc dưới phải -->
-    <div class="flex justify-end items-end w-full">
-      <div id="score-display" class="hidden text-right">
-        <div id="score-text" class="text-4xl md:text-5xl font-black neon-pink tracking-wider font-mono">000000</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Màn hình bắt đầu đơn giản -->
-  <div id="start-overlay" class="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/30 cursor-pointer">
-    <div class="text-center space-y-3 pointer-events-none">
-      <h1 class="text-5xl md:text-7xl font-extrabold neon-pink tracking-widest italic drop-shadow-lg">SYNTH DRIVE</h1>
-      <p id="start-prompt-text" class="text-cyan-300 text-sm md:text-base font-semibold tracking-wider animate-pulse">
-        <i class="fa-solid fa-spinner fa-spin mr-2"></i>ĐANG TẢI DỮ LIỆU...
-      </p>
-    </div>
-  </div>
-
-  <!-- Vùng ẩn điều khiển -->
-  <div id="zones" class="absolute inset-0 z-10 hidden" style="touch-action:none">
-    <div id="zl" class="absolute left-0 top-0 w-1/2 h-full"></div>
-    <div id="zr" class="absolute right-0 top-0 w-1/2 h-full"></div>
-  </div>
-
-  <!-- TAB SETTINGS -->
-  <div id="settings-modal" class="fixed inset-0 z-30 hidden flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-    <div class="cyber-panel p-5 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col gap-4 border-2 border-pink-500/50 shadow-2xl relative overflow-hidden">
-      <div class="flex justify-between items-center border-b border-white/10 pb-3">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-sliders text-pink-500"></i>
-          <h2 class="text-lg font-bold text-cyan-300 uppercase tracking-wider">Cài Đặt & Nhạc</h2>
-        </div>
-        <button id="close-settings-btn" class="text-gray-400 hover:text-white text-lg w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="space-y-4 overflow-y-auto pr-1 text-xs">
-        <div class="space-y-2">
-          <div class="font-bold text-pink-400 flex items-center gap-1"><i class="fa-solid fa-music"></i> NGUỒN NHẠC</div>
-          <label for="audio-file-input" class="w-full cursor-pointer flex flex-col items-center justify-center p-3 border-2 border-dashed border-cyan-400/50 hover:border-cyan-400 rounded-xl bg-cyan-950/30 transition-all">
-            <i class="fa-solid fa-cloud-arrow-up text-2xl text-cyan-400 mb-1"></i>
-            <span class="text-xs font-semibold text-gray-200 text-center" id="file-name-display">Tải lên file MP3 / WAV / OGG</span>
-            <input type="file" id="audio-file-input" accept="audio/*" class="hidden" />
-          </label>
-          <button id="demo-btn" class="w-full py-2 bg-white/5 hover:bg-white/10 border border-pink-500/30 rounded-lg text-pink-300 font-medium transition-all text-center">
-            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Dùng bài Demo (Synth 48s)
-          </button>
-        </div>
-
-        <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
-          <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-route"></i> THÔNG SỐ ĐƯỜNG CUA</div>
-          <div>
-            <div class="text-gray-300 mb-1">Cua theo:</div>
-            <select id="mode-sel">
-              <option value="melody">Giai điệu (cao độ lên → phải, xuống → trái)</option>
-              <option value="beat">Nhịp (mỗi nhịp mạnh đổi hướng)</option>
-              <option value="mix">Kết hợp giai điệu + nhịp</option>
-            </select>
-          </div>
-          <div>
-            <div class="flex justify-between text-gray-300"><span>Độ mượt (lọc nhiễu)</span><span id="v-smooth" class="text-cyan-300">0.50s</span></div>
-            <input id="sl-smooth" type="range" min="0.2" max="1.2" step="0.05" value="0.5" class="accent-pink-500">
-          </div>
-          <div>
-            <div class="flex justify-between text-gray-300"><span>Độ gắt (góc lệch max)</span><span id="v-curve" class="text-cyan-300">40°</span></div>
-            <input id="sl-curve" type="range" min="15" max="60" step="1" value="40" class="accent-pink-500">
-          </div>
-          <div>
-            <div class="flex justify-between text-gray-300"><span>Lực văng khi cua</span><span id="v-drift" class="text-cyan-300">1.0x</span></div>
-            <input id="sl-drift" type="range" min="0.4" max="2" step="0.1" value="1" class="accent-pink-500">
-          </div>
-        </div>
-
-        <div class="space-y-3 bg-black/40 p-3 rounded-xl border border-white/10">
-          <div class="font-bold text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-gamepad"></i> ĐIỀU KHIỂN & ĐỒ HỌA</div>
-          <div>
-            <div class="text-gray-300 mb-1">Điều khiển:</div>
-            <select id="ctrl-sel"><option value="zone">Chạm vùng trái / phải</option><option value="tilt">Nghiêng máy + Chạm</option></select>
-          </div>
-          <div>
-            <div class="text-gray-300 mb-1">Độ phân giải PS1:</div>
-            <select id="res-sel">
-              <option value="180">Thô (180p)</option>
-              <option value="240" selected>PS1 (240p)</option>
-              <option value="360">Mịn hơn (360p)</option>
-            </select>
-          </div>
-          <div>
-            <div class="text-gray-300 mb-1">Màu Theme theo ảnh:</div>
-            <div class="flex items-center gap-2">
-              <label class="px-2 py-1 rounded border border-cyan-400/50 text-cyan-300 cursor-pointer hover:bg-cyan-950/40">
-                Chọn ảnh <input type="file" id="img-input" accept="image/*" class="hidden">
-              </label>
-              <span id="sw-a" class="w-5 h-5 rounded border border-white/30" style="background:#ff2d95"></span>
-              <span id="sw-b" class="w-5 h-5 rounded border border-white/30" style="background:#35f2ff"></span>
-              <button id="theme-reset" class="text-pink-400 underline ml-auto">Reset</button>
-            </div>
-            <div id="theme-note" class="text-[10px] text-gray-400 mt-1">mặc định</div>
-          </div>
-        </div>
-      </div>
-
-      <button id="start-from-settings-btn" class="cyber-button w-full py-2.5 rounded-xl font-bold text-white tracking-wider">BẮT ĐẦU LÁI</button>
-    </div>
-  </div>
-
-  <!-- Loading -->
-  <div id="loading" class="fixed inset-0 z-40 hidden flex-col items-center justify-center bg-black/85 gap-3">
-    <div id="load-text" class="text-cyan-300 text-sm tracking-wider">Đang xử lý...</div>
-    <div class="w-64 h-2 bg-white/10 rounded overflow-hidden"><div id="load-bar" class="h-full bg-pink-500" style="width:0%"></div></div>
-  </div>
-
-  <!-- Pause -->
-  <div id="pause-overlay" class="fixed inset-0 z-30 hidden items-center justify-center bg-black/60">
-    <div class="cyber-panel px-8 py-6 rounded-2xl text-center">
-      <div class="text-3xl font-black neon-pink tracking-widest">TẠM DỪNG</div>
-      <div class="text-xs text-gray-300 mt-2">Nhấn P hoặc chạm màn hình để tiếp tục</div>
-    </div>
-  </div>
-
-  <!-- Game over -->
-  <div id="gameover-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-    <div class="cyber-panel p-8 rounded-2xl max-w-md w-full text-center flex flex-col items-center gap-5 border-2 border-pink-500/50">
-      <h2 class="text-2xl font-extrabold text-cyan-300 tracking-widest">HẾT BÀI</h2>
-      <div>
-        <div class="text-xs text-gray-400 uppercase tracking-widest">Tổng điểm</div>
-        <div id="final-score" class="text-5xl font-black neon-pink my-2">000000</div>
-      </div>
-      <button id="again-btn" class="cyber-button w-full py-3 rounded-xl font-bold text-white">CHƠI LẠI BÀI NÀY</button>
-      <button id="other-btn" class="w-full py-3 rounded-xl font-bold text-cyan-300 border border-cyan-400/50 hover:bg-cyan-900/30">CÀI ĐẶT / ĐỔI BÀI HÁT</button>
-    </div>
-  </div>
+<div id="canvas-container"></div><div id="pop"></div>
+<div id="hud">
+  <div class="row"><span></span><div id="top-right">
+    <div id="curve-graph-container"><canvas id="debug-canvas" width="180" height="45"></canvas></div>
+    <button id="open-settings-btn" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path class="ln" d="M4 7h16"/><path class="ln s" d="M12 12h8"/><path class="ln" d="M4 17h16"/></svg></button>
+  </div></div>
+  <div class="row" style="justify-content:flex-end;align-items:flex-end"><div id="score-display"><div id="score-label">SCORE</div><div id="score-text"><i>00000</i>0</div></div></div>
+</div>
+<div id="start-overlay" class="layer on"><h1>SYNTH DRIVE</h1><div class="rule"></div><p id="start-prompt-text" class="swap">LOADING</p></div>
+<div id="zones"><div id="zl"></div><div id="zr"></div></div>
+<div id="settings-modal" class="layer"><div class="panel">
+  <header><h2>SETTINGS</h2><button id="close-settings-btn" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 5l14 14M19 5L5 19"/></svg></button></header>
+  <div class="body"><div>
+    <section class="r" style="--i:0"><div class="l">TRACK</div><div class="duo"><label class="btn ghost" for="audio-file-input">UPLOAD<input type="file" id="audio-file-input" accept="audio/*" hidden></label><button class="btn ghost" id="demo-btn">DEMO</button></div><div id="file-name-display" class="mono">—</div></section>
+    <section class="r" style="--i:1"><div class="l">THEME</div><div class="theme"><label class="btn ghost" for="theme-img-input">IMAGE<input type="file" id="theme-img-input" accept="image/*" hidden></label><span id="sun-thumb"></span><span class="sw" id="sw-a"></span><span class="sw" id="sw-b"></span><button class="lnk" id="theme-reset">RESET</button></div></section>
+    <section class="r" style="--i:2"><div class="l">RESOLUTION</div><div class="seg" id="res-sel"><i class="thumb"></i><button data-v="180">180P</button><button data-v="240" class="sel">240P</button><button data-v="360">360P</button></div></section>
+    <section class="r" style="--i:3"><div class="l">CONTROL</div><div class="seg" id="ctrl-sel"><i class="thumb"></i><button data-v="zone" class="sel">TOUCH</button><button data-v="tilt">TILT</button></div></section>
+    <section class="r" style="--i:4"><div class="l">VIEW</div><div class="seg" id="view-sel"><i class="thumb"></i><button data-v="full" class="sel">FULL</button><button data-v="phone">PHONE</button></div></section>
+  </div><div>
+    <section class="r" style="--i:1"><div class="l">STEERING</div><div class="seg" id="mode-sel"><i class="thumb"></i><button data-v="melody" class="sel">MELODY</button><button data-v="beat">BEAT</button><button data-v="mix">MIX</button></div></section>
+    <section class="r" style="--i:2"><div class="l">CORNERS</div><div class="seg" id="corner-sel"><i class="thumb"></i><button data-v="0">OFF</button><button data-v="1">LOW</button><button data-v="2" class="sel">MID</button><button data-v="3">HIGH</button></div></section>
+    <section class="r" style="--i:3"><div class="l">SMOOTHING<b id="v-smooth">0.50s</b></div><input id="sl-smooth" type="range" min="0.2" max="1.2" step="0.05" value="0.5"></section>
+    <section class="r" style="--i:4"><div class="l">SENSITIVITY<b id="v-drift">1.0x</b></div><input id="sl-drift" type="range" min="0.4" max="2" step="0.1" value="1"></section>
+  </div></div>
+  <footer><button id="start-from-settings-btn" class="btn main">START</button></footer>
+</div></div>
+<div id="loading" class="layer"><div id="load-text">LOADING</div><div id="load-track"><div id="load-bar"></div></div></div>
+<div id="pause-overlay" class="layer"><div class="panel sm"><h2 class="big">PAUSED</h2><button class="btn main">RESUME</button></div></div>
+<div id="gameover-modal" class="layer"><div class="panel sm"><h2 class="big">FINISH</h2><div class="l">SCORE</div><div id="final-score"><i>00000</i>0</div><button id="again-btn" class="btn main">RETRY</button><button id="other-btn" class="btn ghost">MENU</button></div></div>
 </div>
 
 <script>
@@ -226,41 +152,72 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
+const on = (id,v) => $(id).classList.toggle('on',!!v);
 const clamp = (x,a,b) => x<a?a:(x>b?b:x);
 const lerp = (a,b,t) => a+(b-a)*t;
 const smoothstep = (a,b,x) => { const t = clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
 const CFG = { speed:38, halfW:8, ds:1.5, padBack:60, padFwd:420, fftN:2048, hop:1024 };
-const UI  = { mode:'melody', smooth:0.5, maxDeg:40, drift:1, lines:240, tilt:false };
-const PAL_DEF={a:'#ff2d95',b:'#35f2ff',obs:'#ff2244',skyT:'#06010f',skyM:'#12053a',skyL:'#3a0f6e',glA:'#c2297f',glB:'#ff5aa0',hor:'#4a1670',sun:['#ffe45e','#ff8a3d','#ff2d95'],mount:'#1c0a40',gtile:'#14082e',asA:'#1a0f33',asB:'#1f123d',pillar:'#3a1a7a',body:'#d81b7a',bodyE:'#2a0418',cabin:'#22d8ff',cabinE:'#0a4a60'};
+const UI  = { mode:'melody', smooth:0.5, maxDeg:20, drift:1, corner:2, lines:240, tilt:false };
+const hsl=(h,s,l)=>new THREE.Color().setHSL(((h%1)+1)%1,s,clamp(l,0,1)).getStyle();
+const rgbA=(c,k=1)=>{const o=new THREE.Color(c);return [o.r*k,o.g*k,o.b*k];};
+const DARKEN=0.22;   /* secondary = primary with lightness lowered by DARKEN (same hue) */
+function palFromHue(h,s){ const L=.58, Ld=L-DARKEN; return {a:hsl(h,s,L),b:hsl(h,s,Ld),obs:hsl(h,s,.62),skyT:hsl(h,.6,.03),skyM:hsl(h,.6,.1),skyL:hsl(h,.55,.22),glA:hsl(h,.8,.4),glB:hsl(h,.9,.65),hor:hsl(h,.55,.2),
+  sun:[hsl(h+.04,.9,.74),hsl(h,s,L),hsl(h,s,Ld)],mount:hsl(h,.6,.12),gtile:hsl(h,.6,.1),asA:hsl(h,.5,.09),asB:hsl(h,.5,.11),pillar:hsl(h,.5,.28),body:hsl(h,s,.5),bodyE:hsl(h,.8,.08),cabin:hsl(h,.7,.8),cabinE:hsl(h,.7,.25)}; }
+const PAL_DEF=palFromHue(0.917,1);
 const PAL_MONO={a:'#ffffff',b:'#c8c8c8',obs:'#ffffff',skyT:'#000000',skyM:'#050505',skyL:'#0e0e0e',glA:'#555555',glB:'#dddddd',hor:'#050505',sun:['#ffffff','#dddddd','#888888'],mount:'#080808',gtile:'#000000',asA:'#0a0a0a',asB:'#101010',pillar:'#444444',body:'#ffffff',bodyE:'#222222',cabin:'#bbbbbb',cabinE:'#333333'};
 const PAL=Object.assign({},PAL_DEF);
-const hsl=(h,s,l)=>new THREE.Color().setHSL(((h%1)+1)%1,s,l).getStyle();
-const rgbA=(c,k=1)=>{const o=new THREE.Color(c);return [o.r*k,o.g*k,o.b*k];};
-function palFromHue(h,s){ return {a:hsl(h,s,.55),b:hsl(h+.5,s,.55),obs:hsl(h,s,.6),skyT:hsl(h,.6,.03),skyM:hsl(h,.6,.1),skyL:hsl(h,.55,.22),glA:hsl(h,.8,.4),glB:hsl(h,.9,.65),hor:hsl(h,.55,.2),
-  sun:[hsl(h+.05,.9,.72),hsl(h,s,.58),hsl(h+.5,s,.55)],mount:hsl(h,.6,.12),gtile:hsl(h,.6,.1),asA:hsl(h,.5,.09),asB:hsl(h,.5,.11),pillar:hsl(h,.5,.28),body:hsl(h,s,.5),bodyE:hsl(h,.8,.08),cabin:hsl(h+.5,s,.55),cabinE:hsl(h+.5,.7,.2)}; }
 
 const DARK_FRAC=0.6, MIN_COLOR_FRAC=0.08;
-function themeFromImage(img){
-  const S=48,c=document.createElement('canvas'); c.width=c.height=S;
-  const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(img,0,0,S,S);
-  const d=x.getImageData(0,0,S,S).data, bins=new Float32Array(36), sat=new Float32Array(36);
-  let n=0,dark=0,col=0;
-  for (let i=0;i<d.length;i+=4){
-    const r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255, mx=Math.max(r,g,b), mn=Math.min(r,g,b), df=mx-mn, s=mx?df/mx:0; n++;
+const BAND=8, MAXH=480;
+const KEYS=['a','b','obs','skyT','skyM','skyL','glA','glB','hor','mount','gtile','asA','asB','pillar','body','bodyE','cabin','cabinE'];
+const toC=pal=>{ const o={sun:pal.sun.map(s=>new THREE.Color(s))}; for (const k of KEYS) o[k]=new THREE.Color(pal[k]); return o; };
+const lerpC=(A,B,t)=>{ const o={sun:A.sun.map((c,i)=>c.clone().lerp(B.sun[i],t))}; for (const k of KEYS) o[k]=A[k].clone().lerp(B[k],t); return o; };
+const DEFC=toC(PAL_DEF), LIVE={};
+let RAMP=null, CUR=DEFC, LP=0.5, colTick=0, SONGCOL=false;
+let CUSTOM_SUN_IMG=null; // Lưu trữ hình ảnh mặt trời tùy chỉnh
+
+function palC(p){ if (!RAMP) return DEFC; const x=clamp(p,0,1)*(RAMP.length-1), i=Math.min(RAMP.length-2,x|0); return lerpC(RAMP[i],RAMP[i+1],x-i); }
+function bandPal(d,W,y0,y1){
+  const bins=new Float32Array(36), sat=new Float32Array(36); let n=0,dark=0,col=0;
+  for (let y=y0;y<y1;y++) for (let xx=0;xx<W;xx++){
+    const i=(y*W+xx)*4, r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255, mx=Math.max(r,g,b), mn=Math.min(r,g,b), df=mx-mn, s=mx?df/mx:0; n++;
     if (mx<0.2){ dark++; continue; }
     if (s<0.25) continue;
     let hh = mx===r?((g-b)/df)%6 : mx===g?(b-r)/df+2 : (r-g)/df+4; hh=((hh/6)%1+1)%1;
     const w=s*mx, k=Math.floor(hh*36)%36; bins[k]+=w; sat[k]+=s*w; col++;
   }
-  if (dark/n>=DARK_FRAC || col/n<MIN_COLOR_FRAC) return {pal:PAL_MONO,note:'ảnh tối/xám → nền đen, màu trắng'};
+  if (!n || dark/n>=DARK_FRAC || col/n<MIN_COLOR_FRAC) return PAL_MONO;
   let best=0,bv=-1;
   for (let k=0;k<36;k++){ const v=bins[k]+bins[(k+35)%36]*0.5+bins[(k+1)%36]*0.5; if (v>bv){ bv=v; best=k; } }
-  const h=(best+0.5)/36, s=clamp(bins[best]>0?sat[best]/bins[best]:0.8,0.6,1);
-  return {pal:palFromHue(h,s),note:'chủ đạo '+Math.round(h*360)+'° + màu bù '+Math.round(((h+.5)%1)*360)+'°'};
+  return palFromHue((best+0.5)/36, clamp(bins[best]>0?sat[best]/bins[best]:0.8,0.6,1));
 }
-const STEER_ACC = 34, DRIFT_K = 0.22;
+function rampFromImage(img){
+  const sc=Math.min(1,MAXH/img.height), W=Math.max(8,Math.round(img.width*sc)), H=Math.max(BAND,Math.round(img.height*sc));
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(img,0,0,W,H);
+  const d=x.getImageData(0,0,W,H).data, nb=Math.max(2,Math.floor(H/BAND)); let r=[];
+  for (let b=0;b<nb;b++){ const y1=H-b*BAND; r.push(toC(bandPal(d,W,Math.max(0,y1-BAND),y1))); }   // b=0: hàng dưới cùng
+  for (let pass=0;pass<2;pass++) r=r.map((cc,i)=>lerpC(lerpC(r[Math.max(0,i-1)],r[Math.min(r.length-1,i+1)],.5),cc,.5));   // làm mượt thang
+  return {ramp:r};
+}
+/* vị trí trên thang theo thời điểm: bài hát → cao độ giai điệu (CURVE.col); màn hình chờ → sóng chậm */
+function pAtT(t){ return (SONGCOL&&CURVE&&CURVE.col)?sampleArr(CURVE.col,t):0.5+0.5*Math.sin(t*0.4); }
+function liveColors(sp){
+  if (!RAMP) return;
+  LP+=(pAtT(sp/CFG.speed)-LP)*0.15; CUR=palC(LP); applyLive(CUR,(colTick++%5)===0);
+}
+let UIA='#ff4aa0', UIB='#a8115e', uiTick=0;
+function syncUI(c){ UIA=c.a.getStyle(); UIB=c.b.getStyle(); const st=document.documentElement.style; st.setProperty('--a',UIA); st.setProperty('--b',UIB); }
+function applyLive(c,tex){
+  scene.fog.color.copy(c.hor);
+  if (LIVE.body){ LIVE.body.color.copy(c.body); LIVE.body.emissive.copy(c.bodyE); LIVE.cabin.color.copy(c.cabin); LIVE.cabin.emissive.copy(c.cabinE); LIVE.wing.color.copy(c.b); LIVE.tail.color.copy(c.a); LIVE.glow.color.copy(c.b); }
+  if (LIVE.mtn){ LIVE.mtn.color.copy(c.mount); LIVE.mline.color.copy(c.a); }
+  obsMat.color.copy(c.obs); obsMat.emissive.copy(c.obs).multiplyScalar(.3); ringMat.color.copy(c.b);
+  if (tex){ paintSky(c); paintSun(c, CUSTOM_SUN_IMG); paintGround(c); LIVE.skyTex.needsUpdate=LIVE.sunTex.needsUpdate=LIVE.gtex.needsUpdate=true; if ((uiTick++%2)===0) syncUI(c); }
+}
+const YAW_MAX=2.0, ALIGN=0.5, CORNER_T=3.0, TOW_T=1.2;   // tốc độ quay tối đa (rad/s), lực tự thẳng hàng nhẹ, thời gian 1 khúc cua, thời gian bị kéo
 
 /* AUDIO CONTEXT */
 let audioCtx=null, analyser=null, freqData=null, srcNode=null;
@@ -327,7 +284,7 @@ const tick = () => new Promise(r => setTimeout(r,0));
 async function analyzeBuffer(buf, progress){
   const sr=buf.sampleRate, N=CFG.fftN, H=CFG.hop, half=N/2;
   const len=buf.length, nch=buf.numberOfChannels;
-  if (len < N*8) throw new Error('Bài quá ngắn');
+  if (len < N*8) throw new Error('Track too short');
   const chs=[]; for (let c=0;c<nch;c++) chs.push(buf.getChannelData(c));
   let peak=1e-6;
   for (let c=0;c<nch;c++){ const d=chs[c]; for (let i=0;i<len;i++){ const a=Math.abs(d[i]); if(a>peak) peak=a; } }
@@ -336,7 +293,7 @@ async function analyzeBuffer(buf, progress){
 
   const win=new Float32Array(N); for (let i=0;i<N;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/(N-1));
   const bits=Math.log2(N)|0, rev=new Uint32Array(N);
-  for (let i=0;i<N;i++) rev[i]=(rev[i>>1]>>1)|((i&1)<<(bits-1));
+  for (let i=0;i<N;i++){ rev[i]=(rev[i>>1]>>1)|((i&1)<<(bits-1)); }
   const cosT=new Float32Array(half), sinT=new Float32Array(half);
   for (let k=0;k<half;k++){ cosT[k]=Math.cos(2*Math.PI*k/N); sinT[k]=-Math.sin(2*Math.PI*k/N); }
   const re=new Float32Array(N), im=new Float32Array(N);
@@ -451,7 +408,7 @@ let CURVE=null, CM={off:0,fr:1};
 function buildCurve(F){
   const n=F.nF, fr=F.fr;
   const mel=melodySignal(F), bt=beatSignal(F), raw=new Float32Array(n);
-  for (let i=0;i<n;i++) raw[i]= UI.mode==='melody'?mel[i] : UI.mode==='beat'?bt[i] : clamp(0.75*mel[i]+0.6*bt[i],-1,1);
+  for (let i=0;i<n;i++){ raw[i]= UI.mode==='melody'?mel[i] : UI.mode==='beat'?bt[i] : clamp(0.75*mel[i]+0.6*bt[i],-1,1); }
   const ls=gauss(F.loud,0.15*fr), Lp=percentile(F.loud,0.9);
   const gated=new Float32Array(n), dz=new Float32Array(n);
   for (let i=0;i<n;i++){
@@ -462,11 +419,50 @@ function buildCurve(F){
   let s=gauss(dz,sig*fr);
   const abs=new Float32Array(n); for (let i=0;i<n;i++) abs[i]=Math.abs(s[i]);
   const p=percentile(abs,0.95), sc=p>0.03?Math.min(2.5,0.85/p):1;
-  const maxRad=UI.maxDeg*Math.PI/180, kMax=0.04;
+  const maxRad=UI.maxDeg*Math.PI/180, kMax=0.012;
   const maxStep=(kMax*CFG.speed/maxRad)/fr;
   for (let i=0;i<n;i++){ const t=i/fr+F.off; s[i]=clamp(s[i]*sc,-1,1)*smoothstep(0.5,3.5,t); }
   s=slew(s,maxStep); s=gauss(s,2);
-  return { f:s, raw:gated };
+  const cs=new Float32Array(n); for (let i=0;i<n;i++) cs[i]=mel[i]*smoothstep(0.03*Lp,0.15*Lp,ls[i]);
+  const cg=gauss(cs,0.7*fr), ca=new Float32Array(n); for (let i=0;i<n;i++) ca[i]=Math.abs(cg[i]);
+  const cq=Math.max(0.05,percentile(ca,0.95)), col=new Float32Array(n);      // p ∈ [0,1]: nhạc đi lên → p lên
+  for (let i=0;i<n;i++) col[i]=0.5+0.5*clamp(cg[i]/cq,-1,1);
+  return { f:s, raw:gated, corners:planCorners(F,s), col };
+}
+/* Khúc cua 80–90°: đặt tại các điểm đổi đoạn nhạc (loudness nhảy + onset), hướng theo giai điệu;
+   heading tích luỹ luôn nằm trong [-90°,90°] nên đường không tự cắt chính nó. */
+function planCorners(F,sig){
+  const gapMin=[0,22,15,10][UI.corner]; if (!gapMin) return [];
+  const n=F.nF, fr=F.fr, W=Math.round(1.5*fr), Lp=percentile(F.loud,0.9)+1e-9;
+  const L=gauss(F.loud,0.3*fr), pre=new Float64Array(n+1); for (let i=0;i<n;i++) pre[i+1]=pre[i]+L[i];
+  const avg=(a,b)=>{ a=clamp(a,0,n-1); b=clamp(b,a+1,n); return (pre[b]-pre[a])/(b-a); };
+  const fa=gauss(F.fluxA,0.1*fr); let fm=0; for (let i=0;i<n;i++) fm+=fa[i]; fm=fm/n+1e-9;
+  const nov=new Float32Array(n);
+  for (let i=0;i<n;i++) nov[i]=Math.abs(avg(i,i+W)-avg(i-W,i))/Lp+0.15*fa[i]/fm;
+  const tOf=i=>i/fr+F.off, idxAt=t=>clamp(Math.round((t-F.off)*fr),0,n-1), lo=6, hi=F.duration-CORNER_T-4;
+  const pk=pickPeaks(nov,fr,gapMin,1.0,0).map(tOf).filter(t=>t>=lo&&t<=hi);
+  const maxGap=gapMin*1.7; let again=true, guard=0;
+  while (again && guard++<200){                      // lấp các khoảng trống quá dài
+    again=false; const arr=[lo-gapMin,...pk,hi+gapMin];
+    for (let i=0;i<arr.length-1;i++){
+      if (arr[i+1]-arr[i]<=maxGap) continue;
+      const from=Math.max(arr[i]+gapMin,lo), to=Math.min(arr[i+1]-gapMin,hi); if (to<=from) continue;
+      let best=-1,bt=from; for (let j=idxAt(from);j<=idxAt(to);j++) if (nov[j]>best){ best=nov[j]; bt=tOf(j); }
+      pk.push(bt); pk.sort((x,y)=>x-y); again=true; break;
+    }
+  }
+  const rng=mulberry32(99), out=[]; let cum=0, last=1;
+  for (const t0 of pk){
+    let dTh;
+    if (Math.abs(cum)>0.01) dTh=-cum;                // đang lệch 80–90° → cua ngược về thẳng
+    else {
+      const i0=idxAt(t0), cnt=Math.round(CORNER_T*fr); let m=0; for (let j=i0;j<Math.min(n,i0+cnt);j++) m+=sig[j];
+      const dir=Math.abs(m)>0.05*cnt?Math.sign(m):-last;
+      dTh=dir*(80+rng()*10)*Math.PI/180;
+    }
+    last=Math.sign(dTh); cum+=dTh; out.push({t0,dTh});
+  }
+  return out;
 }
 function sampleArr(a,t){
   if (!a) return 0;
@@ -477,11 +473,11 @@ function sampleArr(a,t){
 /* TRACK BUILDER */
 let TRACK=null;
 const RA={x:0,z:0,th:0,k:0}, RB={x:0,z:0,th:0,k:0}, RF={x:0,z:0,th:0,k:0};
-function buildTrackData(f,dur){
+function buildTrackData(f,dur,corners=[]){
   const v=CFG.speed, ds=CFG.ds, maxRad=UI.maxDeg*Math.PI/180;
   const s0=-CFG.padBack, s1=v*dur+CFG.padFwd, n=Math.ceil((s1-s0)/ds)+1;
   const th=new Float32Array(n), cx=new Float32Array(n), cz=new Float32Array(n);
-  for (let j=0;j<n;j++){ const t=(s0+j*ds)/v; th[j]= (!f||t<=0)?0:maxRad*sampleArr(f,t); }
+  for (let j=0;j<n;j++){ const t=(s0+j*ds)/v; let a=(!f||t<=0)?0:maxRad*sampleArr(f,t); for (const c of corners) a+=c.dTh*smoothstep(0,1,(t-c.t0)/CORNER_T); th[j]=a; }
   let x=0,z=0;
   for (let j=0;j<n;j++){ cx[j]=x; cz[j]=z; x+=Math.sin(th[j])*ds; z-=Math.cos(th[j])*ds; }
   const j0=Math.round(-s0/ds), ox=cx[j0], oz=cz[j0];
@@ -552,30 +548,82 @@ function makeCar(){
   const gg=new THREE.PlaneGeometry(2.1,4.8); gg.rotateX(-Math.PI/2);
   glowMesh=new THREE.Mesh(gg,new THREE.MeshBasicMaterial({color:PAL.b,transparent:true,opacity:0.45,depthWrite:false}));
   glowMesh.position.y=0.07; g.add(glowMesh);
+  Object.assign(LIVE,{body:body.material,cabin:cabin.material,wing:wingMat,tail:tail.material,glow:glowMesh.material});
   return g;
 }
 
+function paintSky(c){
+  const x=LIVE.skyX, g=x.createLinearGradient(0,0,0,128), S=k=>c[k].getStyle();
+  g.addColorStop(0,S('skyT')); g.addColorStop(0.30,S('skyM')); g.addColorStop(0.42,S('skyL'));
+  g.addColorStop(0.47,S('glA')); g.addColorStop(0.49,S('glB')); g.addColorStop(0.5,S('hor')); g.addColorStop(1,S('hor'));
+  x.fillStyle=g; x.fillRect(0,0,4,128);
+}
 function makeSkyTexture(){
-  const c=document.createElement('canvas'); c.width=4; c.height=128; const x=c.getContext('2d');
-  const gr=x.createLinearGradient(0,0,0,128);
-  gr.addColorStop(0,PAL.skyT); gr.addColorStop(0.30,PAL.skyM); gr.addColorStop(0.42,PAL.skyL);
-  gr.addColorStop(0.47,PAL.glA); gr.addColorStop(0.49,PAL.glB); gr.addColorStop(0.5,PAL.hor); gr.addColorStop(1,PAL.hor);
-  x.fillStyle=gr; x.fillRect(0,0,4,128);
-  const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return t;
+  const cv=document.createElement('canvas'); cv.width=4; cv.height=128; LIVE.skyX=cv.getContext('2d'); paintSky(CUR);
+  const t=new THREE.CanvasTexture(cv); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return LIVE.skyTex=t;
 }
-function makeSunTexture(){
-  const S=256, c=document.createElement('canvas'); c.width=c.height=S; const x=c.getContext('2d');
-  const gr=x.createLinearGradient(0,0,0,S); gr.addColorStop(0,PAL.sun[0]); gr.addColorStop(0.55,PAL.sun[1]); gr.addColorStop(1,PAL.sun[2]);
-  x.fillStyle=gr; x.beginPath(); x.arc(S/2,S/2,S/2-2,0,Math.PI*2); x.fill();
+
+/* Cập nhật hàm paintSun để hỗ trợ hình ảnh tùy chỉnh và ÉP THÀNH HÌNH TRÒN */
+function paintSun(c, customImg = null){
+  const x=LIVE.sunX, S=256;
+  const radius = S/2 - 2;
+  const centerX = S/2;
+  const centerY = S/2;
+
+  x.globalCompositeOperation='source-over'; 
+  x.clearRect(0,0,S,S);
+
+  // 1. Tạo Mask hình tròn
+  x.save();
+  x.beginPath();
+  x.arc(centerX, centerY, radius, 0, Math.PI*2);
+  x.clip(); // Tất cả các lệnh vẽ sau lệnh này sẽ chỉ hiển thị bên trong hình tròn
+
+  // 2. Vẽ nội dung (Ảnh tùy chỉnh hoặc Gradient mặc định)
+  if (customImg) {
+    // Ép ảnh vào hình tròn, giữ đúng tỷ lệ (aspect ratio) bằng cách crop center
+    const imgAspect = customImg.width / customImg.height;
+    const canvasAspect = 1; // S/S
+    let renderW, renderH, renderX, renderY;
+
+    if (imgAspect > canvasAspect) {
+      renderH = S;
+      renderW = S * imgAspect;
+      renderY = 0;
+      renderX = (S - renderW) / 2;
+    } else {
+      renderW = S;
+      renderH = S / imgAspect;
+      renderX = 0;
+      renderY = (S - renderH) / 2;
+    }
+    x.drawImage(customImg, renderX, renderY, renderW, renderH);
+  } else {
+    // Vẽ Gradient mặc định
+    const g=x.createLinearGradient(0,0,0,S);
+    g.addColorStop(0,c.sun[0].getStyle()); g.addColorStop(0.55,c.sun[1].getStyle()); g.addColorStop(1,c.sun[2].getStyle());
+    x.fillStyle=g; 
+    x.fillRect(0,0,S,S); // Vẽ đầy rect, clip sẽ lo phần hình tròn
+  }
+
+  x.restore(); // Bỏ clip để vẽ các dải ngang trong suốt
+
+  // 3. Vẽ các dải ngang trong suốt (Dithering bands) - Giữ nguyên phong cách retro
   x.globalCompositeOperation='destination-out';
-  [[0.55,2],[0.64,3],[0.72,5],[0.80,7],[0.87,9],[0.93,12]].forEach(([p,h])=>x.fillRect(0,S*p,S,h));
-  const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; return t;
+  [[0.55,2],[0.64,3],[0.72,5],[0.80,7],[0.87,9],[0.93,12]].forEach(([p,hh])=>x.fillRect(0,S*p,S,hh));
+  
+  x.globalCompositeOperation='source-over';
 }
+
+function makeSunTexture(){
+  const cv=document.createElement('canvas'); cv.width=cv.height=256; LIVE.sunX=cv.getContext('2d'); paintSun(CUR, CUSTOM_SUN_IMG);
+  const t=new THREE.CanvasTexture(cv); t.magFilter=THREE.NearestFilter; return LIVE.sunTex=t;
+}
+function paintGround(c){ const x=LIVE.gx; x.fillStyle=c.gtile.getStyle(); x.fillRect(0,0,64,64); x.strokeStyle=c.a.getStyle(); x.lineWidth=2.5; x.strokeRect(0,0,64,64); }
 function makeGround(){
-  const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
-  x.fillStyle=PAL.gtile; x.fillRect(0,0,64,64); x.strokeStyle=PAL.a; x.lineWidth=2.5; x.strokeRect(0,0,64,64);
-  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(50,50);
-  t.magFilter=THREE.NearestFilter; t.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  const cv=document.createElement('canvas'); cv.width=cv.height=64; LIVE.gx=cv.getContext('2d'); paintGround(CUR);
+  const t=new THREE.CanvasTexture(cv); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(50,50);
+  t.magFilter=THREE.NearestFilter; t.anisotropy=renderer.capabilities.getMaxAnisotropy(); LIVE.gtex=t;
   const g=new THREE.PlaneGeometry(1000,1000); g.rotateX(-Math.PI/2);
   const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:t})); m.position.y=-0.3; return m;
 }
@@ -593,6 +641,7 @@ function makeBackdrop(){
     const l=new THREE.LineSegments(new THREE.EdgesGeometry(geo),lMat); l.position.copy(m.position); l.rotation.copy(m.rotation);
     grp.add(m,l);
   }
+  LIVE.mtn=mMat; LIVE.mline=lMat;
   return grp;
 }
 
@@ -641,7 +690,6 @@ function initThree(){
   window.addEventListener('resize',onResize);
 }
 
-// Hàm Resize tính toán kích thước chiều rộng/chiều cao theo viewport ảo
 function onResize(){
   const vp = $('game-viewport');
   const w = vp.clientWidth;
@@ -660,12 +708,10 @@ function onResize(){
 }
 
 function applyTheme(){
-  scene.fog.color.set(PAL.hor);
-  [backdrop,groundMesh,carGroup].forEach(o=>{ o.traverse(m=>{ if(m.geometry)m.geometry.dispose(); if(m.material&&m.material.map)m.material.map.dispose(); }); scene.remove(o); });
-  groundMesh=makeGround(); backdrop=makeBackdrop(); carGroup=makeCar(); scene.add(groundMesh,backdrop,carGroup);
-  obsMat.color.set(PAL.obs); obsMat.emissive.set(PAL.obs).multiplyScalar(.3); ringMat.color.set(PAL.b);
-  if (TRACK) buildTrackMeshes();
-  $('sw-a').style.background=PAL.a; $('sw-b').style.background=PAL.b;
+  LP=0.5; CUR=palC(0.5); applyLive(CUR,true); syncUI(CUR);
+  if (TRACK) buildTrackMeshes();                      
+  const grad=k=>RAMP?'linear-gradient(to top,'+RAMP.map(c=>'#'+c[k].getHexString()).join(',')+')':'#'+DEFC[k].getHexString();
+  $('sw-a').style.background=grad('a'); $('sw-b').style.background=grad('b');
 }
 
 function stripGeometry(latA,latB,yA,yB,colorFn){
@@ -692,11 +738,12 @@ function buildTrackMeshes(){
   const W=CFG.halfW, n=TRACK.n;
   const mk=po=>ps1(new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:po}));
   const add=(geo,mat)=>{ const m=new THREE.Mesh(geo,mat); m.frustumCulled=false; trackGroup.add(m); };
-  const cA=rgbA(PAL.asA), cB=rgbA(PAL.asB), ra=rgbA(PAL.a), rb=rgbA(PAL.b), wa=rgbA(PAL.a,.7), wb=rgbA(PAL.b,.7);
-  const asphalt=q=>((q>>2)&1)?cB:cA;
-  const rumble =q=>((q>>2)&1)?ra:rb;
+  const memo=[], P_=q=>memo[q]||(memo[q]=palC(RAMP?pAtT((TRACK.s0+q*CFG.ds)/CFG.speed):0.5));
+  const arr=c=>[c.r,c.g,c.b], dim=(c,k)=>[c.r*k,c.g*k,c.b*k];
+  const asphalt=q=>{ const p=P_(q); return arr(((q>>2)&1)?p.asB:p.asA); };
+  const rumble =q=>{ const p=P_(q); return arr(((q>>2)&1)?p.a:p.b); };
   const dash   =q=>((q>>2)&1)?null:[0.9,0.9,1.0];
-  const wall   =q=>((q/6|0)&1)?wa:wb;
+  const wall   =q=>{ const p=P_(q); return dim(((q/6|0)&1)?p.a:p.b,.7); };
   add(stripGeometry(-W,W,0,0,asphalt),mk(-2));
   add(stripGeometry(-W-1.2,-W,0,0,rumble),mk(-6));
   add(stripGeometry(W,W+1.2,0,0,rumble),mk(-6));
@@ -707,9 +754,9 @@ function buildTrackMeshes(){
   const step=16, per=Math.ceil(n/step), cnt=per*2;
   const pGeo=flat(new THREE.CylinderGeometry(0.2,0.6,5,4)); pGeo.translate(0,2.5,0);
   const cGeo=flat(new THREE.ConeGeometry(0.55,1.0,4)); cGeo.translate(0,5.5,0);
-  const pil=new THREE.InstancedMesh(pGeo,ps1(new THREE.MeshLambertMaterial({color:PAL.pillar})),cnt);
-  const capA=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:PAL.a})),cnt);
-  const capB=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:PAL.b})),cnt);
+  const pil=new THREE.InstancedMesh(pGeo,ps1(new THREE.MeshLambertMaterial({color:0xffffff})),cnt);
+  const capA=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:0xffffff})),cnt);
+  const capB=new THREE.InstancedMesh(cGeo,ps1(new THREE.MeshBasicMaterial({color:0xffffff})),cnt);
   const dm=new THREE.Object3D(), rng=mulberry32(11); let ii=0;
   for (let p=0;p<per;p++){
     const j=Math.min(n-1,p*step);
@@ -717,13 +764,14 @@ function buildTrackMeshes(){
       const lat=side*(W+4.6), cs=Math.cos(TRACK.th[j]), sn=Math.sin(TRACK.th[j]);
       dm.position.set(TRACK.cx[j]+cs*lat,-0.3,TRACK.cz[j]+sn*lat); dm.rotation.set(0,-TRACK.th[j],0);
       dm.scale.set(1,0.8+rng()*0.7,1); dm.updateMatrix(); pil.setMatrixAt(ii,dm.matrix);
+      const pc=P_(j); pil.setColorAt(ii,pc.pillar); capA.setColorAt(ii,pc.a); capB.setColorAt(ii,pc.b);
       const useA=(p+(side>0?1:0))%2===0;
       capA.setMatrixAt(ii, useA?dm.matrix:new THREE.Matrix4().makeScale(0,0,0));
       capB.setMatrixAt(ii, useA?new THREE.Matrix4().makeScale(0,0,0):dm.matrix);
       ii++;
     }
   }
-  [pil,capA,capB].forEach(m=>{ m.frustumCulled=false; m.instanceMatrix.needsUpdate=true; trackGroup.add(m); });
+  [pil,capA,capB].forEach(m=>{ m.frustumCulled=false; m.instanceMatrix.needsUpdate=true; if (m.instanceColor) m.instanceColor.needsUpdate=true; trackGroup.add(m); });
   scene.add(trackGroup);
 }
 
@@ -732,11 +780,11 @@ function buildObjects(){
   objGroup=new THREE.Group(); objects.length=0;
   const F=FEAT, rng=mulberry32(1234);
   let pk=pickPeaks(gauss(F.fluxB,1),F.fr,1.1,1.6,0.2);
-  if (pk.length < F.duration/6) pk=pickPeaks(gauss(F.fluxA,1),F.fr,1.6,1.4,0.2);
+  if (pk.length < F.duration/6){ pk=pickPeaks(gauss(F.fluxA,1),F.fr,1.6,1.4,0.2); }
   let lastObs=false;
   for (const e of pk){
-    const t=e/F.fr+F.off; if (t<4||t>F.duration-1.5) continue;
-    const obstacle=!lastObs && rng()<0.3; lastObs=obstacle;
+    const t=e/F.fr+F.off; if (t<4||t>F.duration-1.5){ continue; }
+    const inCorner=CURVE.corners.some(c=>t>c.t0-1&&t<c.t0+CORNER_T+1); const obstacle=!inCorner && !lastObs && rng()<0.3; lastObs=obstacle;
     const lane=(Math.floor(rng()*3)-1)*4.5;
     const s=CFG.speed*t; roadAt(s,RB);
     const rx=Math.cos(RB.th), rz=Math.sin(RB.th);
@@ -750,12 +798,12 @@ function buildObjects(){
 }
 
 /* GAME STATE */
-const G={running:false,paused:false,over:false,t:0,startAt:0,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0};
-const P={d:0,vd:0,steer:0};
+const G={running:false,paused:false,over:false,t:0,startAt:0,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0,tow:0};
+const P={d:0,phi:0,steer:0};
 const keys={left:false,right:false}; let touchSteer=0;
 
 function hurt(pen){ G.score=Math.max(0,G.score-pen); G.combo=0; G.mult=1; G.flash=0.55; G.shake=0.9; }
-function popText(txt){ const el=$('pop'); el.textContent=txt; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+function popText(txt){ const el=$('pop'); el.textContent=txt; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); const st=$('score-text'); st.classList.remove('bump'); void st.offsetWidth; st.classList.add('bump'); }
 
 function update(dt){
   const lat=audioCtx.outputLatency||audioCtx.baseLatency||0;
@@ -763,23 +811,24 @@ function update(dt){
   const v=CFG.speed, sp=v*G.t;
   roadAt(sp,RA);
   const target=clamp((keys.right?1:0)-(keys.left?1:0)+touchSteer+(tiltOn?tiltVal:0),-1,1);
-  P.steer+=(target-P.steer)*Math.min(1,dt*12);
-  P.vd+=(P.steer*STEER_ACC - RA.k*v*v*DRIFT_K*UI.drift)*dt;
-  P.vd*=Math.exp(-1.7*dt);
-  P.d+=P.vd*dt;
-  G.wallCd=Math.max(0,G.wallCd-dt);
+  P.steer+=(target-P.steer)*Math.min(1,dt*7);
   const lim=CFG.halfW-0.6;
-  if (Math.abs(P.d)>lim){
-    const sg=Math.sign(P.d); P.d=sg*lim;
-    if (P.vd*sg>0){ P.vd=-P.vd*0.3; if (G.wallCd<=0){ hurt(60); G.wallCd=0.5; } }
+  if (G.tow>0){                                     
+    G.tow-=dt; P.steer=0;
+    P.d+=(0-P.d)*Math.min(1,dt*4); P.phi+=(0-P.phi)*Math.min(1,dt*6);
+  } else {
+    P.phi+=(P.steer*YAW_MAX*UI.drift - RA.k*v - ALIGN*P.phi)*dt;
+    P.phi=clamp(P.phi,-1.2,1.2);
+    P.d+=v*Math.sin(P.phi)*dt;
+    if (Math.abs(P.d)>lim){ P.d=Math.sign(P.d)*lim; hurt(80); G.tow=TOW_T; popText('CRASH'); }
   }
-  if (G.t>0) G.score+=dt*15;
+  if (G.t>0){ G.score+=dt*15; }
 
   for (const o of objects){
     const ds=o.s-sp;
     o.mesh.visible = !o.done && ds>-12 && ds<420;
-    if (!o.mesh.visible) continue;
-    if (o.type==='ring') o.mesh.rotation.z+=dt*3;
+    if (!o.mesh.visible){ continue; }
+    if (o.type==='ring'){ o.mesh.rotation.z+=dt*3; }
     if (Math.abs(ds)<1.8){
       const dd=Math.abs(o.d-P.d);
       if (o.type==='ring' && dd<2.0){
@@ -791,27 +840,26 @@ function update(dt){
     }
   }
   if (G.t>FEAT.duration+0.3){ endGame(); return; }
-  placeActors(sp,P.d,P.vd,P.steer,RA.k,dt);
+  placeActors(sp,P.d,P.phi,P.steer,RA.k,dt);
   updateHUD();
 }
 
-function placeActors(sp,d,vd,steer,kappa,dt){
-  const v=CFG.speed;
+let camHead=0;
+function placeActors(sp,d,phi,steer,kappa,dt){
   roadAt(sp,RA);
-  const rx=Math.cos(RA.th), rz=Math.sin(RA.th);
+  const rx=Math.cos(RA.th), rz=Math.sin(RA.th), psi=RA.th+phi;
   carGroup.position.set(RA.x+rx*d,0,RA.z+rz*d);
-  carGroup.rotation.y=-(RA.th+Math.atan2(vd,v));
-  carBody.rotation.z=clamp(kappa*v*0.12,-0.2,0.2)+steer*0.04;
+  carGroup.rotation.y=-psi;
+  carBody.rotation.z=steer*0.06;
   carBody.position.y=G.bass*0.06;
   glowMesh.material.opacity=0.35+G.bass*0.5;
 
-  roadAt(sp-10,RB); roadAt(sp+16,RF);
-  const bx=Math.cos(RB.th), bz=Math.sin(RB.th), fx=Math.cos(RF.th), fz=Math.sin(RF.th);
-  const sh=G.shake*0.35;
-  camera.position.set(RB.x+bx*d*0.65+(Math.random()-0.5)*sh, 4.2+(Math.random()-0.5)*sh, RB.z+bz*d*0.65);
-  const roll=clamp(kappa*v*0.10,-0.12,0.12);
-  camera.up.set(bx*roll,1,bz*roll);
-  camera.lookAt(RF.x+fx*d*0.4,1.2,RF.z+fz*d*0.4);
+  camHead+=(psi-camHead)*Math.min(1,dt*6);          
+  const cx=carGroup.position.x, cz=carGroup.position.z, fx=Math.sin(camHead), fz=-Math.cos(camHead), sh=G.shake*0.35;
+  roadAt(sp+26,RF);                                  
+  camera.up.set(0,1,0);
+  camera.position.set(cx-fx*10+(Math.random()-0.5)*sh, 4.2+(Math.random()-0.5)*sh, cz-fz*10);
+  camera.lookAt(lerp(cx+fx*16,RF.x,0.45),1.2,lerp(cz+fz*16,RF.z,0.45));
   camera.fov=72+G.bass*4; camera.updateProjectionMatrix();
   G.shake=Math.max(0,G.shake-dt*2.5);
 
@@ -819,104 +867,106 @@ function placeActors(sp,d,vd,steer,kappa,dt){
   sunMesh.scale.setScalar(1+G.bass*0.05);
   groundMesh.position.x=Math.round(carGroup.position.x/20)*20;
   groundMesh.position.z=Math.round(carGroup.position.z/20)*20;
+  liveColors(sp);
 }
 
 function idleScene(time){
   G.bass*=0.95;
-  const sp=(time*18)%300; P.d=0; P.vd=0; P.steer=0;
-  for (const o of objects) o.mesh.visible=false;
+  const sp=(time*18)%300; P.d=0; P.phi=0; P.steer=0;
+  for (const o of objects){ o.mesh.visible=false; }
   placeActors(sp,0,0,0,0,0.016);
 }
 
-function updateHUD(){
-  $('score-text').textContent=Math.floor(G.score).toString().padStart(6,'0');
-}
+let lastScore=-1;
+function fmt(n){ const t=String(Math.floor(n)).padStart(6,'0'), z=Math.min(5,t.match(/^0*/)[0].length); return '<i>'+t.slice(0,z)+'</i>'+t.slice(z); }
+function countUp(el,to){ const t0=performance.now(); (function f(n){ const k=Math.min(1,(n-t0)/1100); el.innerHTML=fmt(to*(1-Math.pow(1-k,3))); if (k<1) requestAnimationFrame(f); })(t0); }
+function updateHUD(){ const v=Math.floor(G.score); if (v!==lastScore){ lastScore=v; $('score-text').innerHTML=fmt(v); } }
 
 /* ĐỒ THỊ ĐƯỜNG CONG TẠI GÓC TRÊN */
 function drawCurveGraph(){
-  if (!CURVE) return;
+  if (!CURVE){ return; }
   const c=$('debug-canvas'), x=c.getContext('2d'), w=c.width, h=c.height;
   x.clearRect(0,0,w,h);
-  x.fillStyle='rgba(15,10,30,0.6)';
-  x.fillRect(0,0,w,h);
-  
+    
   x.strokeStyle='rgba(255,255,255,0.15)';
   x.lineWidth = 1;
   x.beginPath(); x.moveTo(0,h/2); x.lineTo(w,h/2); x.stroke();
   
   const t0=G.running?G.t-1:0, t1=G.running?G.t+6:7, nowX=w*0.2;
   
-  x.strokeStyle='#00f0ff';
+  x.strokeStyle=UIA;
   x.lineWidth = 2;
   x.beginPath();
   for (let px=0;px<w;px++){ 
     const t=t0+(t1-t0)*px/w;
-    const val = sampleArr(CURVE.f,t);
+    const u=clamp((CFG.speed*t-TRACK.s0)/CFG.ds,0,TRACK.n-1), val=TRACK.th[u|0]/(Math.PI/2*1.3);
     const y=h/2 - val*(h/2-4); 
     px?x.lineTo(px,y):x.moveTo(px,y); 
   }
   x.stroke();
 
   if (G.running) {
-    x.strokeStyle='#ff007f';
+    x.strokeStyle='rgba(255,255,255,.75)';
     x.lineWidth = 1.5;
     x.beginPath(); x.moveTo(nowX,0); x.lineTo(nowX,h); x.stroke();
   }
 }
 
 /* MODAL & GAME FLOW */
-function showLoading(txt,p){ const l=$('loading'); l.classList.remove('hidden'); l.classList.add('flex'); $('load-text').textContent=txt; $('load-bar').style.width=Math.round(p*100)+'%'; }
-function hideLoading(){ const l=$('loading'); l.classList.add('hidden'); l.classList.remove('flex'); }
-
-function updateReadyStatus(){
-  if (songBuffer) {
-    $('start-prompt-text').innerHTML = '<i class="fa-solid fa-play mr-2"></i>CHẠM VÀO MÀN HÌNH ĐỂ BẮT ĐẦU LÁI';
-    $('start-prompt-text').className = "text-cyan-300 text-sm md:text-base font-semibold tracking-wider animate-pulse neon-cyan";
-  } else {
-    $('start-prompt-text').innerHTML = '<i class="fa-solid fa-gear mr-2"></i>MỞ SETTINGS ĐỂ CHỌN BÀI HÁT / DEMO';
-    $('start-prompt-text').className = "text-pink-400 text-sm md:text-base font-semibold tracking-wider animate-pulse";
-  }
-}
+function showLoading(txt,p){ on('loading',1); $('load-text').textContent=txt; $('load-bar').style.width=Math.round(p*100)+'%'; }
+function hideLoading(){ on('loading',0); }
+function setPrompt(t){ const p=$('start-prompt-text'); p.textContent=t; p.classList.remove('swap'); void p.offsetWidth; p.classList.add('swap'); }
+function setTrackName(n,d){ d=Math.round(d); $('file-name-display').textContent=n.replace(/\.[^.]+$/,'')+' · '+Math.floor(d/60)+':'+String(d%60).padStart(2,'0'); }
+function updateReadyStatus(){ setPrompt(songBuffer?'TAP TO START':'OPEN SETTINGS'); }
 
 async function prepareBuffer(buf,name){
   try{
-    showLoading('Đang phân tích nhạc...',0);
-    FEAT=await analyzeBuffer(buf,p=>showLoading('Đang phân tích nhạc...',p));
+    showLoading('ANALYZING',0);
+    FEAT=await analyzeBuffer(buf,p=>showLoading('ANALYZING',p));
     CM={off:FEAT.off,fr:FEAT.fr};
     songBuffer=buf; 
-    $('file-name-display').textContent=name+' ('+Math.round(buf.duration)+'s)';
+    setTrackName(name,buf.duration);
     updateReadyStatus();
-  }catch(err){ alert('Không phân tích được bài này: '+err.message); }
+  }catch(err){ alert('Analysis failed: '+err.message); }
   hideLoading();
 }
 
 $('audio-file-input').addEventListener('change',async e=>{
-  const file=e.target.files[0]; if (!file) return;
+  const file=e.target.files[0]; if (!file){ return; }
   try{
-    showLoading('Đang giải mã...',0.05);
+    showLoading('DECODING',0.05);
     const ab=await file.arrayBuffer(); const buf=await ensureCtx().decodeAudioData(ab);
     await prepareBuffer(buf,file.name);
-  }catch(err){ hideLoading(); alert('Không đọc được file âm thanh.'); }
+  }catch(err){ hideLoading(); alert('Cannot read audio file'); }
 });
 
 $('demo-btn').addEventListener('click',async()=>{
-  showLoading('Đang tạo nhạc demo...',0.05);
+  showLoading('GENERATING',0.05);
   try{ const buf=await makeDemoBuffer(); await prepareBuffer(buf,'Demo Synthwave'); }
-  catch(err){ hideLoading(); alert('Không tạo được demo: '+err.message); }
+  catch(err){ hideLoading(); alert('Demo failed: '+err.message); }
 });
 
-$('mode-sel').addEventListener('change',e=>UI.mode=e.target.value);
-$('sl-smooth').addEventListener('input',e=>{ UI.smooth=+e.target.value; $('v-smooth').textContent=UI.smooth.toFixed(2)+'s'; });
-$('sl-curve').addEventListener('input',e=>{ UI.maxDeg=+e.target.value; $('v-curve').textContent=UI.maxDeg+'°'; });
-$('sl-drift').addEventListener('input',e=>{ UI.drift=+e.target.value; $('v-drift').textContent=UI.drift.toFixed(1)+'x'; });
-$('res-sel').addEventListener('change',e=>{ UI.lines=+e.target.value; onResize(); });
+function fillRange(el){ el.style.setProperty('--p',((el.value-el.min)/(el.max-el.min)*100)+'%'); }
+function seg(id,cb){
+  const el=$(id), bs=[...el.querySelectorAll('button')], th=el.querySelector('.thumb');
+  const set=(b,fire)=>{ bs.forEach(x=>x.classList.toggle('sel',x===b)); th.style.width=b.offsetWidth+'px'; th.style.transform='translateX('+b.offsetLeft+'px)'; if (fire) cb(b.dataset.v); };
+  bs.forEach(b=>b.addEventListener('click',()=>set(b,true)));
+  el._sync=inst=>{ if (inst) th.style.transition='none'; set(el.querySelector('.sel')||bs[0],false); if (inst){ void th.offsetWidth; th.style.transition=''; } };
+}
+const syncSegs=()=>document.querySelectorAll('.seg').forEach(e=>e._sync&&e._sync(true));
+seg('mode-sel',v=>UI.mode=v); seg('corner-sel',v=>UI.corner=+v); seg('res-sel',v=>{ UI.lines=+v; onResize(); }); seg('ctrl-sel',v=>UI.tilt=v==='tilt');
+seg('view-sel',v=>{ document.body.classList.toggle('phone',v==='phone'); onResize(); syncSegs(); });
+$('sl-smooth').addEventListener('input',e=>{ UI.smooth=+e.target.value; $('v-smooth').textContent=UI.smooth.toFixed(2)+'s'; fillRange(e.target); });
+$('sl-drift').addEventListener('input',e=>{ UI.drift=+e.target.value; $('v-drift').textContent=UI.drift.toFixed(1)+'x'; fillRange(e.target); });
+fillRange($('sl-smooth')); fillRange($('sl-drift')); syncUI(DEFC); syncSegs(); window.addEventListener('resize',syncSegs);
+if (document.fonts) document.fonts.ready.then(syncSegs);
 
 function stopSource(){ if (srcNode){ try{ srcNode.stop(); }catch(_){} try{ srcNode.disconnect(); }catch(_){} srcNode=null; } }
 
 function enableTilt(){
   tiltVal=0; if (!UI.tilt){ tiltOn=false; return Promise.resolve(); }
   const D=window.DeviceMotionEvent;
-  if (D && typeof D.requestPermission==='function') return D.requestPermission().then(r=>{ tiltOn=r==='granted'; }).catch(()=>{ tiltOn=false; });
+  if (D && typeof D.requestPermission==='function') { return D.requestPermission().then(r=>{ tiltOn=r==='granted'; }).catch(()=>{ tiltOn=false; }); }
   tiltOn=true; return Promise.resolve();
 }
 
@@ -933,106 +983,84 @@ async function startGame(){
   const tp=enableTilt();
   await tp;
   stopSource();
-  showLoading('Đang dựng đường đua...',0.5); await tick();
+  showLoading('BUILDING TRACK',0.5); await tick();
   
-  CURVE=buildCurve(FEAT);
-  buildTrackData(CURVE.f,FEAT.duration);
+  CURVE=buildCurve(FEAT); SONGCOL=true;
+  buildTrackData(CURVE.f,FEAT.duration,CURVE.corners);
   buildTrackMeshes(); buildObjects();
   hideLoading();
   
-  Object.assign(P,{d:0,vd:0,steer:0});
-  Object.assign(G,{running:true,paused:false,over:false,t:-1.2,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0});
+  Object.assign(P,{d:0,phi:0,steer:0}); camHead=0;
+  Object.assign(G,{running:true,paused:false,over:false,t:-1.2,score:0,combo:0,mult:1,flash:0,shake:0,bass:0,wallCd:0,tow:0});
   updateHUD();
   
   srcNode=audioCtx.createBufferSource(); srcNode.buffer=songBuffer; srcNode.connect(analyser);
   G.startAt=audioCtx.currentTime+1.2; srcNode.start(G.startAt);
   
-  // UI States
-  $('start-overlay').classList.add('hidden');
-  $('settings-modal').classList.add('hidden');
-  $('gameover-modal').classList.add('hidden'); $('gameover-modal').classList.remove('flex');
-  $('score-display').classList.remove('hidden');
-  $('curve-graph-container').classList.remove('hidden');
-  $('zones').classList.remove('hidden');
+  on('start-overlay',0); on('settings-modal',0); on('gameover-modal',0); on('pause-overlay',0);
+  on('score-display',1); on('curve-graph-container',1); on('zones',1);
 }
 
 function endGame(){
   G.running=false; G.over=true; stopSource();
-  $('final-score').textContent=Math.floor(G.score).toString().padStart(6,'0');
-  $('zones').classList.add('hidden');
-  const m=$('gameover-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+  on('zones',0); on('score-display',0); on('curve-graph-container',0); on('gameover-modal',1);
+  countUp($('final-score'),G.score);
 }
-
 function togglePause(){
-  if (!G.running) return;
-  G.paused=!G.paused;
-  const o=$('pause-overlay');
-  if (G.paused){ audioCtx.suspend(); o.classList.remove('hidden'); o.classList.add('flex'); }
-  else { audioCtx.resume(); o.classList.add('hidden'); o.classList.remove('flex'); lastNow=performance.now(); }
+  if (!G.running){ return; }
+  G.paused=!G.paused; on('pause-overlay',G.paused);
+  if (G.paused){ audioCtx.suspend(); } else { audioCtx.resume(); lastNow=performance.now(); }
 }
-
-function openSettings() {
-  if (G.running && !G.paused) togglePause();
-  $('settings-modal').classList.remove('hidden');
-}
-
-function closeSettings() {
-  $('settings-modal').classList.add('hidden');
-  updateReadyStatus();
-}
-
-$('open-settings-btn').addEventListener('click', (e) => { e.stopPropagation(); openSettings(); });
-$('close-settings-btn').addEventListener('click', closeSettings);
-$('start-from-settings-btn').addEventListener('click', () => { closeSettings(); startGame(); });
-
-// Tap Start
-$('start-overlay').addEventListener('click', startGame);
-
-$('again-btn').addEventListener('click', startGame);
-$('other-btn').addEventListener('click', () => { 
-  $('gameover-modal').classList.add('hidden'); 
-  $('gameover-modal').classList.remove('flex');
-  $('start-overlay').classList.remove('hidden');
-  openSettings();
-});
+function openSettings(){ if (G.running && !G.paused){ togglePause(); } on('settings-modal',1); requestAnimationFrame(syncSegs); }
+function closeSettings(){ on('settings-modal',0); updateReadyStatus(); }
+$('open-settings-btn').addEventListener('click',e=>{ e.stopPropagation(); openSettings(); });
+$('close-settings-btn').addEventListener('click',closeSettings);
+$('start-from-settings-btn').addEventListener('click',()=>{ closeSettings(); startGame(); });
+$('start-overlay').addEventListener('click',startGame);
+$('again-btn').addEventListener('click',startGame);
+$('other-btn').addEventListener('click',()=>{ on('gameover-modal',0); on('start-overlay',1); openSettings(); });
 
 /* INPUTS */
 window.addEventListener('keydown',e=>{
   const k=e.key;
   if (k==='ArrowLeft'||k==='a'||k==='A'){ keys.left=true; e.preventDefault(); }
   else if (k==='ArrowRight'||k==='d'||k==='D'){ keys.right=true; e.preventDefault(); }
-  else if (k==='p'||k==='P'||k==='Escape') togglePause();
+  else if (k==='p'||k==='P'||k==='Escape'){ togglePause(); }
 });
 window.addEventListener('keyup',e=>{
   const k=e.key;
-  if (k==='ArrowLeft'||k==='a'||k==='A') keys.left=false;
-  else if (k==='ArrowRight'||k==='d'||k==='D') keys.right=false;
+  if (k==='ArrowLeft'||k==='a'||k==='A'){ keys.left=false; }
+  else if (k==='ArrowRight'||k==='d'||k==='D'){ keys.right=false; }
 });
 
-let zl=0,zr=0,tiltOn=false,tiltVal=0;
+let zl=0,zr=0,tiltOn=false,tiltVal=0,gotMotion=false;
 function zone(id,side){
   const el=$(id), ids=new Set();
-  const upd=()=>{ if (side<0) zl=ids.size?1:0; else zr=ids.size?1:0; touchSteer=zr-zl; };
+  const upd=()=>{ if (side<0){ zl=ids.size?1:0; } else { zr=ids.size?1:0; } touchSteer=zr-zl; };
   el.addEventListener('pointerdown',e=>{ e.preventDefault(); ids.add(e.pointerId); try{ el.setPointerCapture(e.pointerId); }catch(_){} upd(); });
   ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>el.addEventListener(ev,e=>{ ids.delete(e.pointerId); upd(); }));
 }
 zone('zl',-1); zone('zr',1);
+/* Desktop tilt simulation: mouse X across the game view acts as the tilt angle */
+window.addEventListener('pointermove',e=>{
+  if (e.pointerType!=='mouse' || !UI.tilt || gotMotion || !G.running){ return; }
+  const r=$('game-viewport').getBoundingClientRect();
+  tiltVal=clamp((e.clientX-(r.left+r.width/2))/(r.width*0.3),-1,1);
+});
 $('zones').addEventListener('contextmenu',e=>e.preventDefault());
 
-/* Tính toán độ nghiêng máy chuẩn xác bất kể máy dọc hay ngang (Dành cho iOS/iPhone) */
 window.addEventListener('devicemotion', e => {
-  if (!tiltOn) return;
+  if (!tiltOn){ return; }
   const a = e.accelerationIncludingGravity; 
-  if (!a || a.x == null || a.y == null) return;
+  if (!a || a.x == null || a.y == null){ return; }
+  gotMotion=true;
   
   const isPortrait = window.innerHeight > window.innerWidth;
   let deg = 0;
 
   if (isPortrait) {
-    // Khi đang ép xoay ngang CSS trên màn hình dọc (Portrait)
     deg = Math.atan2(a.y, a.x) * 180 / Math.PI;
   } else {
-    // Khi xoay ngang thật (Landscape)
     const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0);
     const r = ((ang % 360) + 360) % 360;
     let sx, sy;
@@ -1043,20 +1071,25 @@ window.addEventListener('devicemotion', e => {
     const k = sy < 0 ? -1 : 1;
     deg = -Math.atan2(sx * k, Math.abs(sy)) * 180 / Math.PI;
   }
-
   tiltVal = clamp(Math.abs(deg) < 4 ? 0 : (deg - 4 * Math.sign(deg)) / 22, -1, 1);
 });
 
-$('ctrl-sel').addEventListener('change',e=>UI.tilt=e.target.value==='tilt');
-$('img-input').addEventListener('change',e=>{
-  const f=e.target.files[0]; if (!f) return; const img=new Image();
-  img.onload=()=>{ const r=themeFromImage(img); Object.assign(PAL,r.pal); applyTheme(); $('theme-note').textContent=r.note; URL.revokeObjectURL(img.src); };
-  img.src=URL.createObjectURL(f);
+/* One image drives both the sun and the theme palette */
+let sunURL=null;
+$('theme-img-input').addEventListener('change',e=>{
+  const f=e.target.files[0]; if (!f){ return; }
+  const url=URL.createObjectURL(f), img=new Image();
+  img.onload=()=>{
+    RAMP=rampFromImage(img).ramp; CUSTOM_SUN_IMG=img; applyTheme();
+    const t=$('sun-thumb'); t.style.backgroundImage='url('+url+')';
+    if (sunURL){ URL.revokeObjectURL(sunURL); } sunURL=url;
+  };
+  img.src=url; e.target.value='';
 });
-$('theme-reset').addEventListener('click',()=>{ Object.assign(PAL,PAL_DEF); applyTheme(); $('theme-note').textContent='mặc định'; });
-$('pause-overlay').addEventListener('click',()=>{ if (G.paused) togglePause(); });
+$('theme-reset').addEventListener('click',()=>{ RAMP=null; CUSTOM_SUN_IMG=null; applyTheme(); $('sun-thumb').style.backgroundImage=''; });
 
-document.addEventListener('visibilitychange',()=>{ if (document.hidden && G.running && !G.paused) togglePause(); });
+$('pause-overlay').addEventListener('click',()=>{ if (G.paused){ togglePause(); } });
+document.addEventListener('visibilitychange',()=>{ if (document.hidden && G.running && !G.paused){ togglePause(); } });
 
 /* MAIN LOOP */
 let lastNow=performance.now();
@@ -1070,7 +1103,7 @@ function frame(now){
     G.bass=Math.max(raw,G.bass*0.9);
   }
 
-  if (G.running){ if (!G.paused) update(dt); }
+  if (G.running){ if (!G.paused){ update(dt); } }
   else idleScene(now/1000);
   
   G.flash=Math.max(0,G.flash-dt*2.5); postMat.uniforms.uFlash.value=G.flash*0.5;
@@ -1080,7 +1113,6 @@ function frame(now){
   renderer.setRenderTarget(null); renderer.render(postScene,postCam);
 }
 
-// Khởi tạo bản demo sẵn
 makeDemoBuffer().then(buf => {
   prepareBuffer(buf, 'Demo Synthwave');
 }).catch(() => {});
